@@ -189,6 +189,3 @@ def get_user_info_by_id(user_id):
     connection.close()
 
     return user_info
-
-
-print(get_user_info_by_id(1))

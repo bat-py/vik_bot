@@ -100,8 +100,7 @@ async def check_last_2min_logs(dp: Dispatcher):
 async def schedule_jobs(dp):
     hour = int(config['time']['start_hour'])
     minute = int(config['time']['start_minute'])
-    interval = int(config['time']['check_interval'])
 
     scheduler.add_job(check_users_in_logs, 'cron', day_of_week='mon-sat', hour=hour, minute=minute, args=(dp, ))
-    scheduler.add_job(check_last_2min_logs, 'interval', seconds=interval, args=(dp, ))
+    scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp, ))
 
