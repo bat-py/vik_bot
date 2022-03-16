@@ -62,9 +62,9 @@ async def check_last_2min_logs(dp: Dispatcher):
 
         # Если за последние 2 минуты кто-то пришел или ушел
         if last_2min_logs:
-            for user_id in last_2min_logs:
+            for user in last_2min_logs:
                 # Чтобы узнать первый раз ли он зашел получим количество логов рабочего за сегодня
-                all_logs_count = sql_handler.get_user_today_logs_count(user_id)
+                all_logs_count = sql_handler.get_user_today_logs_count(user[0])
 
                 # Если это его первый раз за сегодня значит он только что пришел. Отправим админам что он пришел
                 if all_logs_count == 1:
@@ -72,22 +72,34 @@ async def check_last_2min_logs(dp: Dispatcher):
                     admins_chat_id_list = list(map(lambda i: i[0], admins))
 
                     # Получаем информацию об опоздавшем (ID, name, Who, chat_id)
-                    user_info = sql_handler.get_user_info_by_id(int(user_id))
+                    user_info = sql_handler.get_user_info_by_id(int(user[0]))
 
                     # Определим на сколько часов и минут он опоздал
                     start_hour = int(config['time']['start_hour'])
                     start_minute = int(config['time']['start_minute'])
                     beginning_delta = datetime.timedelta(hours=start_hour, minutes=start_minute)
-                    now_delta = datetime.timedelta(hours=now.hour, minutes=now.minute)
+                    print(user[0])
+                    print(user[1])
+                    print(user[1].hour)
+                    print(user[1].minute)
+                    now_time = datetime.time(user[1].hour, user[1].minute, user[1].second)
+                    now_delta = datetime.timedelta(hours=user[1].hour, minutes=user[1].minute, seconds=user[1].second)
                     late_second = now_delta - beginning_delta
-                    late_time_hour = (datetime.datetime.min + late_second).hour
-                    late_time_minute = (datetime.datetime.min + late_second).minute
+                    late_time_hour = (datetime.datetime.min + late_second).time()
+                    late_time = late_time_hour.strftime("%H:%M:%S")
+
+
+
+                    if late_time_hour.hour == 0:
+                        hour_or_minute = config['msg']['minute']
+                    else:
+                        hour_or_minute = config['msg']['hour']
 
                     # Составим сообщения чтобы отправить админам
                     msg1 = f'<b>{user_info[1]}</b> '
                     msg2 = config['msg']['latecomer_came']
-                    msg3 = f"{config['msg']['arrival_time']} {now.hour}:{now.minute}"
-                    msg4 = f"{config['msg']['late_by']} {late_time_hour}:{late_time_minute} {config['msg']['hour']}"
+                    msg3 = f"{config['msg']['arrival_time']} {now_time.strftime('%H:%M:%S')}"
+                    msg4 = f"{config['msg']['late_by']} {late_time}"
                     msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
 
                     for admin_id in admins_chat_id_list:

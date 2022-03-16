@@ -73,7 +73,7 @@ def get_todays_logins():
     cursor = connection.cursor()
 
     # Получаем сегодняшные записи
-    cursor.execute('SELECT DISTINCT ID FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) ORDER BY id;')
+    cursor.execute('SELECT DISTINCT ID FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) ORDER BY ID;')
     logins = cursor.fetchall()
 
     connection.close()
@@ -95,7 +95,7 @@ def add_new_admin(chat_id, first_name):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('INSERT INTO "admins" VALUES(?, ?)', (chat_id, first_name))
+    cursor.execute('INSERT INTO "admins" VALUES(?, ?, ?)', (chat_id, first_name, 0))
     connection.commit()
 
     connection.close()
@@ -131,6 +131,27 @@ def check_admin_exist(chat_id):
     return admin
 
 
+def get_admin_notification_status(chat_id):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT notification FROM "admins" WHERE chat_id = ?;', (chat_id, ))
+    admin = cursor.fetchone()[0]
+
+    connection.close()
+    return admin
+
+
+def update_admin_notification_status(chat_id, status):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('UPDATE "admins" SET notification = ? WHERE chat_id = ?;', (status, chat_id))
+    connection.commit()
+
+    connection.close()
+
+
 def get_admin_menu_password():
     connection = connection_creator()
     cursor = connection.cursor()
@@ -149,13 +170,20 @@ def get_last_2min_logins():
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT ID FROM ivms WHERE datetime >= DATEADD(minute, -2 , GETDATE());""")
+    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= DATEADD(minute, -2 , GETDATE());""")
     #cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
 
-    logins = set([i[0] for i in cursor.fetchall()])
+    logins = cursor.fetchall()
+    id = []
+    clean_logins = []
+
+    for login in logins:
+        if not(login[0] in id):
+            clean_logins.append(login)
+            id.append(login[0])
 
     connection.close()
-    return logins
+    return clean_logins
 
 
 def get_user_today_logs_count(user_id):
@@ -189,3 +217,4 @@ def get_user_info_by_id(user_id):
     connection.close()
 
     return user_info
+
