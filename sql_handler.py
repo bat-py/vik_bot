@@ -1,4 +1,6 @@
 import pypyodbc
+import random
+import datetime
 
 
 def connection_creator():
@@ -43,7 +45,7 @@ def get_user_name(user_id):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT Name FROM "user" WHERE ID = ?;', (user_id, ))
+    cursor.execute('SELECT Name FROM "user" WHERE ID = ?;', (user_id,))
     users_name = cursor.fetchone()
 
     connection.close()
@@ -73,7 +75,8 @@ def get_todays_logins():
     cursor = connection.cursor()
 
     # Получаем сегодняшные записи
-    cursor.execute('SELECT DISTINCT ID FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) ORDER BY ID;')
+    cursor.execute(
+        'SELECT DISTINCT ID FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) ORDER BY ID;')
     logins = cursor.fetchall()
 
     connection.close()
@@ -124,7 +127,7 @@ def check_admin_exist(chat_id):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT chat_id FROM "admins" WHERE chat_id = ?;', (chat_id, ))
+    cursor.execute('SELECT chat_id FROM "admins" WHERE chat_id = ?;', (chat_id,))
     admin = cursor.fetchone()
 
     connection.close()
@@ -135,7 +138,7 @@ def get_admin_notification_status(chat_id):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT notification FROM "admins" WHERE chat_id = ?;', (chat_id, ))
+    cursor.execute('SELECT notification FROM "admins" WHERE chat_id = ?;', (chat_id,))
     admin = cursor.fetchone()[0]
 
     connection.close()
@@ -171,14 +174,14 @@ def get_last_2min_logins():
     cursor = connection.cursor()
 
     cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= DATEADD(minute, -2 , GETDATE());""")
-    #cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
+    # cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
 
     logins = cursor.fetchall()
     id = []
     clean_logins = []
 
     for login in logins:
-        if not(login[0] in id):
+        if not (login[0] in id):
             clean_logins.append(login)
             id.append(login[0])
 
@@ -194,7 +197,7 @@ def get_user_today_logs_count(user_id):
     cursor = connection.cursor()
 
     cursor.execute("""SELECT COUNT(ID) FROM ivms WHERE ivms.date = CONVERT(date, GETDATE()) AND ID = ?;""",
-                   (user_id, )
+                   (user_id,)
                    )
     todays_logs_count = cursor.fetchone()[0]
 
@@ -211,10 +214,38 @@ def get_user_info_by_id(user_id):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT * FROM "user" WHERE ID = ?""", (user_id, ))
+    cursor.execute("""SELECT * FROM "user" WHERE ID = ?""", (user_id,))
     user_info = cursor.fetchone()
 
     connection.close()
 
     return user_info
 
+
+def report_creator(user_id):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    date = datetime.date.today()
+
+    symbols = []
+    symbols.extend(list(map(chr, range(ord('A'), ord('Z') + 1))))
+    symbols.extend(list(map(chr, range(ord('a'), ord('z') + 1))))
+    symbols.extend(list(str(i) for i in range(0, 10)))
+
+    while True:
+        # Рандомно генерируем 8 код
+        generated_id = ''.join([random.choice(symbols) for i in range(8)])
+
+        # Создаем новый запись в таблице
+        try:
+            cursor.execute("""INSERT INTO "repot" VALUES(?, ?, ?);""", (generated_id, user_id, date))
+            connection.commit()
+            break
+        # Если генерированный код уже есть в таблице, тогда выйдет ошибка и цикл опять заработает
+        except:
+            pass
+
+    connection.close()
+
+    return generated_id

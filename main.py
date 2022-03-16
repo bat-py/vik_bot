@@ -24,7 +24,7 @@ dp = Dispatcher(bot=bot, storage=storage)
 if __name__ == '__main__':
     registration.register_handlers(dp)
     admin_panel.register_handlers(dp)
-
+    checkup.register_handlers(dp)
     checkup.scheduler.start()
 
     executor.start_polling(dp, skip_updates=True, on_startup=checkup.schedule_jobs)

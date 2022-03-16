@@ -1,5 +1,7 @@
 from aiogram import Dispatcher, types
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+import button_creators
 import sql_handler
 import configparser
 import datetime
@@ -44,6 +46,39 @@ async def check_users_in_logs(dp: Dispatcher):
             msg
         )
 
+    # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
+    for user in latecommer_users:
+        await send_notification_to_latecomer(dp, user)
+
+
+async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
+    """
+    Сперва создает строку в таблице "report": ID(8 значное код), user_id(ID того кто опоздал), date(сегодняшнее число),
+    а столбец comment останется пустым.
+    Отправит сообщения всем опоздавшим сообщения что они опоздали с inline кнопкой "Оставить комментарии",
+    callback_data кнопки будет хранить "report.ID"
+    latecomer_info хранит в себе (ID, Name, chat_id)  # ID это latecomer_id
+    :param dp:
+    :param latecomer_id:
+    :return:
+    """
+    # report_creator создает запись в таблице report(id, user_id, date) и возвращает генерированный код(id)
+    report_id = sql_handler.report_creator(latecomer_info[0])
+
+    # Создадим inline кнопку "Оставить комментарии"
+    leave_comment_button = button_creators.inline_keyboard_creator(
+        [[[config['msg']['leave_comment'], f'comment{report_id}']]])
+
+    # Составим сообщение
+    msg = f"<b>{latecomer_info[1]}</b> {config['msg']['you_late']}"
+
+    # Отправим сообщения с inline кнопкой "Оставить комментарии" опоздавшему
+    await dp.bot.send_message(
+        latecomer_info[2],
+        msg,
+        reply_markup=leave_comment_button
+    )
+
 
 async def check_last_2min_logs(dp: Dispatcher):
     start_hour = int(config['time']['start_hour'])
@@ -51,7 +86,7 @@ async def check_last_2min_logs(dp: Dispatcher):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    activate_time = datetime.time(start_hour, start_minute+5, 0)
+    activate_time = datetime.time(start_hour, start_minute + 5, 0)
     end_time = datetime.time(end_hour, end_minute, 0)
 
     # Если время в промежутке 9:05 - 19:00
@@ -88,8 +123,6 @@ async def check_last_2min_logs(dp: Dispatcher):
                     late_time_hour = (datetime.datetime.min + late_second).time()
                     late_time = late_time_hour.strftime("%H:%M:%S")
 
-
-
                     if late_time_hour.hour == 0:
                         hour_or_minute = config['msg']['minute']
                     else:
@@ -109,10 +142,26 @@ async def check_last_2min_logs(dp: Dispatcher):
                         )
 
 
+async def leave_comment_inline_button_handler(callback_query: types.CallbackQuery):
+    """
+    Запуститься после того как пользователь нажал на inline кнопку "Оставить комментарии"
+    :param callback_query:
+    :return:
+    """
+    report_id = callback_query.data.replace('comment', '')
+    print('hello')
+
+
 async def schedule_jobs(dp):
     hour = int(config['time']['start_hour'])
     minute = int(config['time']['start_minute'])
 
-    scheduler.add_job(check_users_in_logs, 'cron', day_of_week='mon-sat', hour=hour, minute=minute, args=(dp, ))
-    scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp, ))
+    scheduler.add_job(check_users_in_logs, 'cron', day_of_week='mon-sat', hour=hour, minute=minute, args=(dp,))
+    scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
 
+
+def register_handlers(dp: Dispatcher):
+    dp.register_callback_query_handler(
+        leave_comment_inline_button_handler,
+        lambda c: c.data.startswith('comment')
+    )
