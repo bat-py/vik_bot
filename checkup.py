@@ -80,7 +80,9 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
         [[[config['msg']['leave_comment'], f'comment{report_id}']]])
 
     # Составим сообщение
-    msg = f"<b>{latecomer_info[1]}</b> {config['msg']['you_late']}"
+    msg1 = f"{config['msg']['date']} {datetime.date.today()}"
+    msg2 = f"<b>{latecomer_info[1]}</b> {config['msg']['you_late']}"
+    msg = msg1 + '\n' + msg2
 
     # Отправим сообщения с inline кнопкой "Оставить комментарии" опоздавшему
     await dp.bot.send_message(
@@ -154,6 +156,12 @@ async def leave_comment_inline_button_handler(callback_query: types.CallbackQuer
     :return:
     """
     report_id = callback_query.data.replace('comment', '')
+
+    # Удаляем inline кнопку
+    await callback_query.bot.edit_message_reply_markup(
+        callback_query.message.chat.id,
+        callback_query.message.message_id
+    )
 
     # Сохраним report_id
     await state.update_data(report_id=report_id)
