@@ -1,4 +1,6 @@
 from aiogram import Dispatcher, types
+from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.filters.state import StatesGroup, State
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import button_creators
@@ -10,6 +12,10 @@ scheduler = AsyncIOScheduler()
 
 config = configparser.ConfigParser()
 config.read('config.ini')
+
+
+class MyStates(StatesGroup):
+    waiting_for_comment = State()
 
 
 async def check_users_in_logs(dp: Dispatcher):
@@ -48,7 +54,11 @@ async def check_users_in_logs(dp: Dispatcher):
 
     # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
     for user in latecommer_users:
-        await send_notification_to_latecomer(dp, user)
+        # Так как он будет отправлять каждому опоздавшему сообщения, но если кто-то заблокировал бот, он его пропустит
+        try:
+            await send_notification_to_latecomer(dp, user)
+        except:
+            pass
 
 
 async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
@@ -142,14 +152,52 @@ async def check_last_2min_logs(dp: Dispatcher):
                         )
 
 
-async def leave_comment_inline_button_handler(callback_query: types.CallbackQuery):
+async def leave_comment_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
     Запуститься после того как пользователь нажал на inline кнопку "Оставить комментарии"
     :param callback_query:
     :return:
     """
     report_id = callback_query.data.replace('comment', '')
-    print('hello')
+
+    # Сохраним report_id
+    await state.update_data(report_id=report_id)
+
+    # Установим статус
+    await MyStates.waiting_for_comment.set()
+
+    # Отправим сообщения "Можете оставить комментарии"
+    msg = config['msg']['you_can_leave_comment']
+
+    # Создадим кнопку "Отменить"
+    button = button_creators.reply_keyboard_creator([[config['msg']['cancel']]], one_time=True)
+
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
+
+
+async def leaved_comment_handler(message: types.Message, state: FSMContext):
+    # Если он нажал на кнопку "Отменить"
+    if message.text == config['msg']['cancel']:
+        await state.finish()
+        msg = config['msg']['leave_comment_cancaled']
+
+        await message.answer(msg)
+    else:
+        comment = message.text
+        all_data = await state.get_data()
+        comment_id = all_data['report_id']
+
+        # Запишем комментарию в таблицу report
+        sql_handler.comment_writer(comment_id, comment)
+
+        # Сообщим пользователю что комментария сохранена
+        button_hider = button_creators.hide_reply_buttons()
+        msg = config['msg']['comment_saved']
+        await message.answer(msg, reply_markup=button_hider)
 
 
 async def schedule_jobs(dp):
@@ -164,4 +212,9 @@ def register_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         leave_comment_inline_button_handler,
         lambda c: c.data.startswith('comment')
+    )
+
+    dp.register_message_handler(
+        leaved_comment_handler,
+        state=MyStates.waiting_for_comment
     )

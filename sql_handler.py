@@ -239,7 +239,7 @@ def report_creator(user_id):
 
         # Создаем новый запись в таблице
         try:
-            cursor.execute("""INSERT INTO "repot" VALUES(?, ?, ?);""", (generated_id, user_id, date))
+            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?);""", (generated_id, user_id, date))
             connection.commit()
             break
         # Если генерированный код уже есть в таблице, тогда выйдет ошибка и цикл опять заработает
@@ -249,3 +249,13 @@ def report_creator(user_id):
     connection.close()
 
     return generated_id
+
+
+def comment_writer(comment_id, comment):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""UPDATE "report" SET comment = ? WHERE id = ? """, (comment, comment_id))
+    connection.commit()
+
+    connection.close()
