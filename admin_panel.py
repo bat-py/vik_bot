@@ -327,7 +327,14 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
         # Составим сообщение
         msg1 = config['msg']['you_chose'] + chosen_worker[1]
-        msg2 = '\n\n'.join(msg_late_days_list)
+
+        # Если у выбранного пользователя нашлись опоздания
+        if msg_late_days_list:
+            msg2 = '\n\n'.join(msg_late_days_list)
+        # Если ни разу не опоздал
+        else:
+            msg2 = config['msg']['no_latecomes']
+
         msg = msg1 + '\n\n' + msg2
 
         # Кнопка "Главное меню"
