@@ -8,6 +8,7 @@ import registration
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import checkup
 
+
 config = configparser.ConfigParser()
 config.read('config.ini')
 API_TOKEN = config['main']['api_token']

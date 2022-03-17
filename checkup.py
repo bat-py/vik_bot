@@ -123,20 +123,15 @@ async def check_last_2min_logs(dp: Dispatcher):
                     start_hour = int(config['time']['start_hour'])
                     start_minute = int(config['time']['start_minute'])
                     beginning_delta = datetime.timedelta(hours=start_hour, minutes=start_minute)
-                    print(user[0])
-                    print(user[1])
-                    print(user[1].hour)
-                    print(user[1].minute)
+
                     now_time = datetime.time(user[1].hour, user[1].minute, user[1].second)
                     now_delta = datetime.timedelta(hours=user[1].hour, minutes=user[1].minute, seconds=user[1].second)
                     late_second = now_delta - beginning_delta
                     late_time_hour = (datetime.datetime.min + late_second).time()
                     late_time = late_time_hour.strftime("%H:%M:%S")
 
-                    if late_time_hour.hour == 0:
-                        hour_or_minute = config['msg']['minute']
-                    else:
-                        hour_or_minute = config['msg']['hour']
+                    # Запишем в таблицу "report" время прихода опоздавшего
+                    sql_handler.late_time_writer(user_info[0], now_time)
 
                     # Составим сообщения чтобы отправить админам
                     msg1 = f'<b>{user_info[1]}</b> '

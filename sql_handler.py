@@ -1,17 +1,21 @@
 import pypyodbc
 import random
 import datetime
+import configparser
+
+config = configparser.ConfigParser()
+config.read('config.ini')
 
 
 def connection_creator():
     """
     :return: connect object
     """
-    connection = pypyodbc.connect('Driver={ODBC Driver 17 for SQL Server};'
-                                  'Server=84.54.115.2;'
-                                  'Database=telegrambot;'
-                                  'uid=sa;'
-                                  'pwd=sherxan@123#;')
+    connection = pypyodbc.connect(f"Driver={config['sql']['driver']};"
+                                  f"Server={config['sql']['server']};"
+                                  f"Database={config['sql']['database']};"
+                                  f"uid={config['sql']['uid']};"
+                                  f"pwd={config['sql']['pwd']};")
 
     return connection
 
@@ -259,3 +263,61 @@ def comment_writer(comment_id, comment):
     connection.commit()
 
     connection.close()
+
+
+def get_all_workers():
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT * FROM "user" WHERE Who = ?', ('Control',))
+    users_list = cursor.fetchall()
+
+    connection.close()
+    return users_list
+
+
+def get_data_by_term(user_id, term):
+    """
+    :param user_id:
+    :param term:
+    :return: Возвращает записи из таблицы "report" работника в указанном сроке
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+    term = int(term) - 1
+
+    # Получаем  записи
+    cursor.execute("""
+        SELECT * FROM "report" 
+        WHERE date >= cast(getdate()-? as date) AND
+        date < cast(getdate()+1 as date) AND 
+        user_id = ? 
+        ORDER BY ID;
+        """, (term, user_id)
+        )
+    data = cursor.fetchall()
+
+    connection.close()
+    return data
+
+
+def late_time_writer(user_id, come_time):
+    """
+    Эта функция запишет в столбец time таблицы report время прихода опоздавшего.
+    :param come_time:
+    :param user_id:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+    UPDATE report SET time = ?
+    WHERE date >= cast(getdate() as date) AND
+    date < cast(getdate()+1 as date) AND
+    user_id = ?;""", (come_time, user_id))
+    connection.commit()
+
+    connection.close()
+
+
