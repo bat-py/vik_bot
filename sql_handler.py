@@ -110,12 +110,26 @@ def add_new_admin(chat_id, first_name):
 
 def get_admins_list():
     """
-    :return: admins list: [(chat_id, first_name), ...]
+    :return: admins list: [(chat_id, first_name, notification), ...]
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
     cursor.execute('SELECT * FROM "admins";')
+    admins_list = cursor.fetchall()
+
+    connection.close()
+    return admins_list
+
+
+def get_admins_where_notification_on():
+    """
+    :return: admins list where notification is on: [(chat_id, first_name, notification), ...]
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT * FROM "admins" WHERE notification = ?;', (1,))
     admins_list = cursor.fetchall()
 
     connection.close()
@@ -336,3 +350,92 @@ def check_control(user_id):
 
     connection.close()
     return user_checked
+
+
+def get_early_leaved_users():
+    """
+    Возвращает список людей кто ушел раньше сегодня
+    :return: Возвращает dict:  {id: (ID(00000012), date, time), ...}
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+                    SELECT ID, date, time FROM ivms
+                    WHERE date >= cast(getdate()-1 as date) AND date < cast(getdate()+1 as date) AND
+                    DeviceNo = ?
+                    ORDER BY time DESC;
+                    """,
+                   (config['device']['out_device'],)
+                   )
+    today_data = cursor.fetchall()
+
+    # Берем самые последные выходы работников за сегодня
+    early_leaved_users_dict = {}
+    for out in today_data:
+        if int(out[0]) not in early_leaved_users_dict:
+            early_leaved_users_dict[int(out[0])] = out
+
+    # Создаем новый dict тех кто ушел раньше
+    early_leaved_users_dict_clear = {}
+    for user_id, out in early_leaved_users_dict.items():
+        # Проверяем user на control. Если в 'user.Who' у него uncontrol, тогда его пропустим
+        if not check_control(user_id):
+            continue
+
+        end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
+                                            minutes=int(config['time']['end_minute']))
+        leaved_time_delta = datetime.timedelta(hours=out[2].hour, minutes=out[2].minute)
+        if leaved_time_delta < end_time_delta:
+            early_leaved_users_dict_clear[user_id] = out
+
+    connection.close()
+    return early_leaved_users_dict_clear
+
+
+a = get_early_leaved_users()
+print(a)
+print(len(a))
+
+
+def early_leaved_writer(user_id, date, time):
+    """
+    Создает новую строку в таблице early_leaved
+    :param user_id:
+    :param date:
+    :param time:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""INSERT INTO "early_leaved" VALUES(?, ?, ?)""", (user_id, date, time))
+    connection.commit()
+
+    connection.close()
+
+
+def early_leaved_user_history(user_id, term):
+    """
+    :param term:
+    :param user_id:
+    :return: Возвращает историю(на сколько рано ушел) указанного рабочего в указанном периоде: [(id, date, time), ...]
+
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    term = int(term) - 1
+
+    cursor.execute("""
+                    SELECT * FROM "early_leaved" 
+                    WHERE date >= cast(getdate()-? as date) AND
+                    date < cast(getdate()+1 as date) AND 
+                    id = ?;""",
+                   (term, user_id)
+                   )
+
+    user_history = cursor.fetchall()
+
+    connection.close()
+    return user_history

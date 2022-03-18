@@ -19,6 +19,13 @@ class MyStates(StatesGroup):
 
 
 async def check_users_in_logs(dp: Dispatcher):
+    today = datetime.datetime.today()
+    # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
+    day_of_week = datetime.datetime.isoweekday(today)
+    # Если сегодня выходной то скрипт остановиться
+    if day_of_week == int(config['time']['day_off']):
+        return
+
     # Получаем ID тех кто пришел в 9:01 каждый день
     ids_who_came = sql_handler.get_todays_logins()
     ids_who_came = [int(i[0]) for i in ids_who_came]
@@ -103,7 +110,11 @@ async def check_last_2min_logs(dp: Dispatcher):
 
     # Если время в промежутке 9:05 - 19:00
     now = datetime.datetime.now().time()
-    if activate_time <= now < end_time:
+    today = datetime.datetime.today()
+    # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
+    day_of_week = datetime.datetime.isoweekday(today)
+
+    if activate_time <= now < end_time and day_of_week != int(config['time']['day_off']):
         # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
         last_2min_logs = sql_handler.get_last_2min_logins()
 
@@ -211,12 +222,65 @@ async def leaved_comment_handler(message: types.Message, state: FSMContext):
         await message.answer(msg, reply_markup=button_hider)
 
 
-async def schedule_jobs(dp):
-    hour = int(config['time']['start_hour'])
-    minute = int(config['time']['start_minute'])
+async def check_end_of_the_day(dp: Dispatcher):
+    """
+    Функция в конце дня проверяет кто ушел до конца рабочего дня, тогда запишет в таблицу "early_leaved" и отправит админам список
+    :param dp:
+    :return:
+    """
+    # Получим dict тех кто ушел раньше: {id(int): (ID(00000012), date, time), ...}
+    early_leaved_users_dict = sql_handler.get_early_leaved_users()
 
-    scheduler.add_job(check_users_in_logs, 'cron', day_of_week='mon-sat', hour=hour, minute=minute, args=(dp,))
+    # msg2 в виде листа
+    msg2_list = []
+    # Заполняем msg2_list с данными: [(ФИО, Ушел в: 15:05, Ушел раньше чем: 03:55), ...]
+    for user_id, leaved_user_info in early_leaved_users_dict.items():
+        # Запишем тех кто ушел раньше в таблицу early_leaved(id, date, time)
+        sql_handler.early_leaved_writer(user_id, leaved_user_info[1], leaved_user_info[2])
+
+        # Определим на сколько часов и минут он ушел раньше
+        end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
+                                            minutes=int(config['time']['end_minute']))
+        leaved_time_delta = datetime.timedelta(hours=leaved_user_info[2].hour, minutes=leaved_user_info[2].minute)
+        early_seconds = end_time_delta - leaved_time_delta
+        early_time_hour = (datetime.datetime.min + early_seconds).time()
+        early_time = early_time_hour.strftime("%H:%M:%S")
+
+        # Получаем информацию рабочего (id, name, who, chat_id)
+        user_data = sql_handler.get_user_info_by_id(user_id)
+        msg2_1 = user_data[1]
+        msg2_2 = config['msg']['leaved'] + ' ' + leaved_user_info[2].strftime('%H:%M:%S')
+        msg2_3 = config['msg']['early_leaved'] + ' ' + early_time
+        msg = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
+        msg2_list.append(msg)
+
+    # Составим сообщения чтобы отправить админам
+    msg1 = config['msg']['early_leaved_users']
+    msg2 = '\n\n'.join(msg2_list)
+    print(msg1 + '\n' + msg2)
+    # Отправим админам кто ушел раньше
+    # Получаем список [(chat_id, first_name, notification), ...] админов где notification = 1
+    admins_list = sql_handler.get_admins_where_notification_on()
+    print(admins_list)
+    # Отправим сообщение всем админам список тех кто ушел раньше и на сколько
+    for admin in admins_list:
+        await dp.bot.send_message(
+            admin[0],
+            msg1 + '\n' + msg2
+        )
+
+
+async def schedule_jobs(dp):
+    start_hour = int(config['time']['start_hour'])
+    start_minute = int(config['time']['start_minute'])
+
+    end_hour = int(config['time']['end_hour'])
+    end_minute = int(config['time']['end_minute'])
+
+    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp, ))
     scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
+    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp, ))
+#    scheduler.add_job(check_end_of_the_day, 'cron', hour=2, minute=59, args=(dp, ))
 
 
 def register_handlers(dp: Dispatcher):
