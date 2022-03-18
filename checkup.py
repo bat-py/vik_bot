@@ -152,6 +152,7 @@ async def check_last_2min_logs(dp: Dispatcher):
 async def leave_comment_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
     Запуститься после того как пользователь нажал на inline кнопку "Оставить комментарии"
+    :param state:
     :param callback_query:
     :return:
     """
@@ -193,6 +194,9 @@ async def leaved_comment_handler(message: types.Message, state: FSMContext):
         comment = message.text
         all_data = await state.get_data()
         comment_id = all_data['report_id']
+
+        # Отключаем state
+        await state.finish()
 
         # Запишем комментарию в таблицу report
         sql_handler.comment_writer(comment_id, comment)
