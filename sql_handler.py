@@ -11,7 +11,7 @@ def connection_creator():
     """
     :return: connect object
     """
-    connection = pypyodbc.connect(f"Driver={config['sql']['driverget_user_today_logs_count']};"
+    connection = pypyodbc.connect(f"Driver={config['sql']['driver']};"
                                   f"Server={config['sql']['server']};"
                                   f"Database={config['sql']['database']};"
                                   f"uid={config['sql']['uid']};"
