@@ -11,7 +11,7 @@ def connection_creator():
     """
     :return: connect object
     """
-    connection = pypyodbc.connect(f"Driver={config['sql']['driver']};"
+    connection = pypyodbc.connect(f"Driver={config['sql']['driverget_user_today_logs_count']};"
                                   f"Server={config['sql']['server']};"
                                   f"Database={config['sql']['database']};"
                                   f"uid={config['sql']['uid']};"
@@ -243,7 +243,8 @@ def report_creator(user_id):
 
         # Создаем новый запись в таблице
         try:
-            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?);""", (generated_id, user_id, date))
+            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?);""",
+                           (generated_id, user_id, date))
             connection.commit()
             break
         # Если генерированный код уже есть в таблице, тогда выйдет ошибка и цикл опять заработает
@@ -294,7 +295,7 @@ def get_data_by_term(user_id, term):
         user_id = ? 
         ORDER BY ID;
         """, (term, user_id)
-        )
+                   )
     data = cursor.fetchall()
 
     connection.close()
@@ -321,3 +322,17 @@ def late_time_writer(user_id, come_time):
     connection.close()
 
 
+def check_control(user_id):
+    """
+    Возвращает True если указанный user имеет статус Control
+    :param user_id:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT ID FROM "user" WHERE ID = ? AND Who = ?;', (user_id, 'Control'))
+    user_checked = cursor.fetchone()
+
+    connection.close()
+    return user_checked
