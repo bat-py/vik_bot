@@ -229,7 +229,26 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     if message.text == config['msg']['main_menu']:
         await state.finish()
         await main_menu(message)
-    # Если админ выбрал существующий номер, спросим сколько дней отчета надо показать
+    # Если эта информация уже есть, значит админ вернулся назад со следующего меню
+    elif data.get('chosen_worker'):
+        chosen_worker = data['chosen_worker']
+        # Меняем статус на waiting_for_term
+        await MyStates.waiting_for_term.set()
+
+        # Создадим кнопку "Главное меню"
+        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+        # Составим сообщения: "Вы выбрали: Name"
+        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        msg2 = config['msg']['term']
+        msg = msg1 + '\n\n' + msg2
+
+        await message.answer(
+            msg,
+            reply_markup=button
+        )
+
+    # Если админ первый раз в этом меню и  выбрал существующий номер, спросим сколько дней отчета надо показать
     elif message.text in workers_numbers_list:
         chosen_worker_info = users_dict[message.text]
         # Сохраним выбранного работника в память (ID, name, Who, chat_id)
