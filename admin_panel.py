@@ -370,8 +370,9 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                 msg2_block_list.append(msg2)
             except Exception as e:
                 msg2_1 = config['msg']['three_lines'] + str(day) + config['msg']['three_lines']
-                msg2_2 = config['msg']['no_data']
-                msg2 = msg2_1 + '\n' + msg2_2
+                msg2_2 = config['msg']['came']
+                msg2_3 = config['msg']['leaved']
+                msg2 = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
 
                 # Добавим созданную часть сообщения в msg2_block_list
                 msg2_block_list.append(msg2)
@@ -427,7 +428,7 @@ def early_leave_check(time):
 
     # Иногда бывает что IN есть а OUT не было. В такое время он вернет "Нету данных"
     if not time:
-        return config['msg']['no_data'], early_time_delta
+        return config['msg']['leaved'], early_time_delta
 
     # Определим на сколько часов и минут он ушел раньше
     end_time_delta = datetime.timedelta(
