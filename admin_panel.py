@@ -14,6 +14,7 @@ class MyStates(StatesGroup):
     waiting_for_password = State()
     waiting_for_worker_number = State()
     waiting_for_term = State()
+    waiting_report_page_buttons = State()
 
 
 async def admin_command_handler(message: types.Message):
@@ -238,7 +239,7 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
         await MyStates.waiting_for_term.set()
 
         # Создадим кнопку "Главное меню"
-        button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
+        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
 
         # Составим сообщения: "Вы выбрали: Name"
         msg1 = config['msg']['you_chose'] + chosen_worker_info[1]
@@ -272,15 +273,20 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     if message.text == config['msg']['main_menu']:
         await state.finish()
         await main_menu(message)
+    #Если нажал на кнопку Назад вместо количество дней
+    elif message.text == config['msg']['back']:
+        await MyStates.waiting_for_worker_number.set()
+        await report_handler(message, state=state)
+
     # Если отправил число от 1 до 30
     elif message.text.strip() in str_numbers:
+        # Установим новое состояние чтобы кнопка Назад после показа
+        await MyStates.waiting_report_page_buttons.set()
+
         all_data = await state.get_data()
         # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
         chosen_worker = all_data['chosen_worker']
         chosen_term = message.text.strip()
-
-        # Отключаем статус waiting_for_term
-        await state.finish()
 
         # Суммарное время опозданий
         total_late_hours = datetime.timedelta()
@@ -308,7 +314,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
             # Если при процессе сбора данных одного дня, тогда в это число напишем что "Данных нет в базе"
             try:
                 # Если данное число(date) выходной, тогда этот день пропустим
-                if str(datetime.datetime.isoweekday(datetime.datetime.now())) == config['time']['day_off']:
+                if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
                     continue
 
                 # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или (False,False)
@@ -328,51 +334,74 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                         late_time_in_seconds = came_time_delta - beginning_delta
                         late_time = (datetime.datetime.min + late_time_in_seconds).time()
                         late_time_str = late_time.strftime("%H:%M")
-                        mesg2 = config['msg']['late_by'] + ' ' + late_time_str
+                        mesg3 = config['msg']['late_by'] + ' ' + late_time_str
 
                         # Прибавим время опоздания в суммарную delta
                         total_late_hours += late_time_in_seconds
 
-                        mesg3 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                        mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
 
                         # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
                         # timedelta: чтобы определить суммарное время
                         out_check = early_leave_check(in_out_time[1])
-                        mesg4 = out_check[0]
+                        # Если есть время ухода и раннего ухода
+                        mesg2_5 = out_check[0]
+                        if '#' in mesg2_5:
+                            ms = mesg2_5.split('#')
+                            mesg2 = ms[0]
+                            mesg5 = f"\n{ms[1]}"
+                        else:
+                            mesg2 = mesg2_5
+                            mesg5 = ''
+
                         # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
                         total_early_lived_time += out_check[1]
 
                         # Хранит в себе "Приход:\n Опоздал на:\n Причина:\n Ушел в:"
-                        msg2_2 = mesg1 + '\n' + mesg2 + '\n' + mesg3 + '\n' + mesg4
+                        msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4 + mesg5
 
                     # Так как столбец time пуст, значит он не пришел
                     else:
-                        msg2_2 = config['msg']['did_not_come']
+                        mesg1 = config['msg']['did_not_come']
+                        mesg2 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                        msg2_2 = mesg1 + '\n' + mesg2
                         missed_days += 1
                 # Если в таблице report не найден данный день, значит он пришел во время
                 else:
-                    mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
+                    try:
+                        mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
+                    except:
+                        mesg1 = config['msg']['came']
 
                     # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
                     # timedelta: чтобы определить суммарное время
                     out_check = early_leave_check(in_out_time[1])
-                    mesg2 = out_check[0]
+                    # Если есть время ухода и раннего ухода
+                    mesg2_3 = out_check[0]
+                    if '#' in mesg2_3:
+                        ms = mesg2_3.split('#')
+                        mesg2 = ms[0]
+                        mesg3 = f"\n{ms[1]}"
+                    else:
+                        mesg2 = mesg2_3
+                        mesg3 = ''
+
                     # Прибовляем время в суммарное время раннего ухода (если он ушел раньше. А если нет то timedelta = 0)
                     total_early_lived_time += out_check[1]
 
                     # Хранит в себе "Приход:\n Ушел в: "
-                    msg2_2 = mesg1 + '\n' + mesg2
+                    msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + mesg3
 
-                msg2_1 = config['msg']['three_lines'] + str(day) + config['msg']['three_lines']
+                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + config['msg']['three_lines'] + '</b>'
                 msg2 = msg2_1 + '\n' + msg2_2
 
                 # Добавим созданную часть сообщения в msg2_block_list
                 msg2_block_list.append(msg2)
             except Exception as e:
-                msg2_1 = config['msg']['three_lines'] + str(day) + config['msg']['three_lines']
+                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + config['msg']['three_lines'] + '</b>'
                 msg2_2 = config['msg']['came']
                 msg2_3 = config['msg']['leaved']
-                msg2 = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
+                msg2 = msg2_1 + '\n' + msg2_2 + '  <b>|</b>  ' + msg2_3
 
                 # Добавим созданную часть сообщения в msg2_block_list
                 msg2_block_list.append(msg2)
@@ -401,7 +430,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         msg = msg1 + '\n\n' + msg2 + '\n' + config['msg']['lines'] + '\n' + msg3
 
         # Кнопка "Главное меню"
-        button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
+        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
         await message.answer(
             msg,
             reply_markup=button
@@ -410,10 +439,25 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     # Если отправил неправильное число или текст
     else:
         # Создадим кнопку "Главное меню"
-        button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
+        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
 
         msg = config['msg']['wrong_term']
         await message.answer(msg, reply_markup=button)
+
+
+async def report_page_buttons(message: types.Message, state: FSMContext):
+    """
+    Эта функция нужна чтобы того как показал отчет за выбранный период мог работать кнопка Назад
+    :param message:
+    :param state:
+    :return:
+    """
+    if message.text == config['msg']['back']:
+        # Устанавливаем новый статус
+        await MyStates.waiting_for_worker_number.set()
+
+        await choosen_worker_handler(message, state)
+
 
 
 def early_leave_check(time):
@@ -449,7 +493,7 @@ def early_leave_check(time):
 
         msg1 = config['msg']['leaved'] + ' ' + time.strftime("%H:%M")
         msg2 = config['msg']['early_leaved'] + ' ' + early_time
-        msg = msg1 + '\n' + msg2
+        msg = msg1 + '#' + msg2
 
         early_time_delta = early_seconds
 
@@ -494,6 +538,13 @@ def register_handlers(dp: Dispatcher):
     dp.register_message_handler(
         chosen_term_handler,
         state=MyStates.waiting_for_term
+    )
+
+    # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет за выбранный период
+    dp.register_message_handler(
+        report_page_buttons,
+        content_types=['text'],
+        state=MyStates.waiting_report_page_buttons
     )
 
     dp.register_message_handler(

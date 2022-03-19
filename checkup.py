@@ -23,7 +23,7 @@ async def check_users_in_logs(dp: Dispatcher):
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
     day_of_week = datetime.datetime.isoweekday(today)
     # Если сегодня выходной то скрипт остановиться
-    if day_of_week == int(config['time']['day_off']):
+    if str(day_of_week) in config['time']['day_off']:
         return
 
     # Получаем ID тех кто пришел в 9:01 каждый день
@@ -87,7 +87,7 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
         [[[config['msg']['leave_comment'], f'comment{report_id}']]])
 
     # Составим сообщение
-    msg1 = f"{config['msg']['date']} {datetime.date.today()}"
+    msg1 = f"{config['msg']['date']} {datetime.date.today().strftime('%d.%m.%Y')}"
     msg2 = f"<b>{latecomer_info[1]}</b> {config['msg']['you_late']}"
     msg = msg1 + '\n' + msg2
 
@@ -114,7 +114,7 @@ async def check_last_2min_logs(dp: Dispatcher):
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
     day_of_week = datetime.datetime.isoweekday(today)
 
-    if activate_time <= now < end_time and day_of_week != int(config['time']['day_off']):
+    if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
         # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
         last_2min_logs = sql_handler.get_last_2min_logins()
 
@@ -265,7 +265,7 @@ async def check_end_of_the_day(dp: Dispatcher):
     # Отправим админам кто ушел раньше
     # Получаем список [(chat_id, first_name, notification), ...] админов где notification = 1
     admins_list = sql_handler.get_admins_where_notification_on()
-    print(admins_list)
+
     # Отправим сообщение всем админам список тех кто ушел раньше и на сколько
     for admin in admins_list:
         await dp.bot.send_message(
@@ -283,7 +283,7 @@ async def schedule_jobs(dp):
 
     scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp, ))
     scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
-    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp, ))
+    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour+1, minute=end_minute, args=(dp, ))
 #    scheduler.add_job(check_end_of_the_day, 'cron', hour=2, minute=59, args=(dp, ))
 
 
