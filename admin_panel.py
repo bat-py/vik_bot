@@ -17,12 +17,14 @@ class MyStates(StatesGroup):
     waiting_report_page_buttons = State()
 
 
-async def admin_command_handler(message: types.Message):
+async def admin_command_handler(message: types.Message, state: FSMContext):
     """
     Обработывает команду /admin
     :param message:
     :return:
     """
+    await state.finish()
+
     chat_id = message.chat.id
     # Если возвращает пользователь уже есть в списке тогда он возвращает chat_id этого админа
     check_admin_exist = sql_handler.check_admin_exist(chat_id)
@@ -227,10 +229,16 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     workers_numbers_list = users_dict.keys()
 
     if message.text == config['msg']['main_menu']:
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         await state.finish()
         await main_menu(message)
     # Если эта информация уже есть, значит админ вернулся назад со следующего меню
     elif data.get('chosen_worker'):
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         chosen_worker = data['chosen_worker']
         # Меняем статус на waiting_for_term
         await MyStates.waiting_for_term.set()
@@ -250,6 +258,9 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
 
     # Если админ первый раз в этом меню и  выбрал существующий номер, спросим сколько дней отчета надо показать
     elif message.text in workers_numbers_list:
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         chosen_worker_info = users_dict[message.text]
         # Сохраним выбранного работника в память (ID, name, Who, chat_id)
         await state.update_data(chosen_worker=chosen_worker_info)
@@ -286,19 +297,31 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     :param message:
     :return:
     """
-    str_numbers = [str(i) for i in range(1,31)]
+    str_numbers = [str(i) for i in range(1, 31)]
 
     # Если нажал на кнопку Главное меню
     if message.text == config['msg']['main_menu']:
+        # Удаляем 2 последние сообщения
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         await state.finish()
         await main_menu(message)
     #Если нажал на кнопку Назад вместо количество дней
     elif message.text == config['msg']['back']:
+        # Удаляем 2 последние сообщения
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         await MyStates.waiting_for_worker_number.set()
         await report_handler(message, state=state)
 
     # Если отправил число от 1 до 30
     elif message.text.strip() in str_numbers:
+        # Удаляем 2 последние сообщения
+        for i in range(2):
+            await message.bot.delete_message(message.chat.id, message.message_id-i)
+
         # Установим новое состояние чтобы кнопка Назад после показа
         await MyStates.waiting_report_page_buttons.set()
 
@@ -525,7 +548,8 @@ def early_leave_check(time):
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(
         admin_command_handler,
-        commands=['admin']
+        commands=['admin'],
+        state='*'
     )
 
     dp.register_message_handler(
