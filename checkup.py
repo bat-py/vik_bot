@@ -154,7 +154,7 @@ async def check_last_2min_logs(dp: Dispatcher):
                         msg1 = f'<b>{user_info[1]}</b> '
                         msg2 = config['msg']['latecomer_came']
                         msg3 = f"{config['msg']['arrival_time']} {now_time.strftime('%H:%M:%S')}"
-                        msg4 = f"{config['msg']['late_by']} {late_time}"
+                        msg4 = f"<b>{config['msg']['late_by']}</b> {late_time}"
                         msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
 
                         for admin_id in admins_chat_id_list:

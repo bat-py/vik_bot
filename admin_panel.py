@@ -200,7 +200,7 @@ async def report_handler(message: types.Message, state: FSMContext):
 
     msg1 = config['msg']['choose_worker']
     # Составим список всех рабочих чтобы отправить виде смс админу: ['1) Alisher Raximov', '', ...]
-    nomer_name_list = [f'{nomer}) {data[1]}' for nomer, data in users_dict.items()]
+    nomer_name_list = [f'{nomer}. {data[1]}' for nomer, data in users_dict.items()]
     msg2 = '\n'.join(nomer_name_list)
     msg = msg1 + '\n' + msg2
 
@@ -289,7 +289,9 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         msg_late_days_list = []
 
         # Суммарное время опозданий
-        tatal_late_hours = datetime.timedelta()
+        total_late_hours = datetime.timedelta()
+        # Количество дней который не пришел
+        missed_days = 0
 
         # В day хранится: (id, user_id, date, comment, time). Цикл заполняет лист msg_late_days_list
         for day in worker_report_list:
@@ -301,7 +303,6 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
             # Если есть время значит он пришел с опозданием
             if day[4]:
-                time = datetime.timedelta
                 # Определим на сколько часов и минут он опоздал
                 start_hour = int(config['time']['start_hour'])
                 start_minute = int(config['time']['start_minute'])
@@ -312,6 +313,10 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                 late_time_in_seconds = came_time_delta - beginning_delta
                 late_time = (datetime.datetime.min + late_time_in_seconds).time()
 
+                # Суммируем время опоздания на total_late_hours
+                time = datetime.timedelta(hours=day[4].hour, minutes=day[4].minute, seconds=day[4].second)
+                total_late_hours += late_time_in_seconds
+
                 # Время прихода с опозданием
                 came_time_str = came_time.strftime('%H:%M:%S')
                 # На сколько времени он опоздал
@@ -321,10 +326,11 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                 msg1 = f"{day[2]} {came_time_str}\n{config['msg']['late_by']} {late_time_str}\n"
             # Если нету время прихода, значит он вообще не пришел
             else:
+                missed_days += 1
                 msg1 = f"{day[2]}\n{config['msg']['did_not_come']}\n"
 
             # Составим окончательный блок одного дня опоздания для сообщения
-            msg2 = config['msg']['reason'] + comment
+            msg2 = config['msg']['reason']+ ' ' + comment
             msg_block = msg1 + msg2
 
             msg_late_days_list.append(msg_block)
@@ -334,7 +340,9 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
         # Если у выбранного пользователя нашлись опоздания
         if msg_late_days_list:
-            msg1_2 = '\n\n'.join(msg_late_days_list)
+            msg1_2_1 = '\n\n'.join(msg_late_days_list)
+            msg1_2_2 = config['msg']['total'] + ' ' + str(total_late_hours)
+            msg1_2 = msg1_2_1 + '\n\n' + msg1_2_2
         # Если ни разу не опоздал
         else:
             msg1_2 = config['msg']['no_violation']
@@ -349,9 +357,8 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         msg2_lists = []
         # Хранит суммарное время(раньше времени)
         total_early_lived_time = datetime.timedelta()
-        for day in user_leave_history_list:
-            total_early_lived_time += datetime.timedelta(hours=day[2].hour, minutes=day[2].minute, seconds=day[2].second)
 
+        for day in user_leave_history_list:
             msg2_1 = config['msg']['date'] + ' ' + day[1].strftime('%Y-%m-%d')
             msg2_2 = config['msg']['leaved'] + ' ' + day[2].strftime('%H:%M:%S')
 
@@ -372,14 +379,23 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
             msg2_block = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
             msg2_lists.append(msg2_block)
 
+            # Суммируем время ухода раньше времени в total_early_lived_time
+            total_early_lived_time += early_seconds
+
         # Если в данный период он ушел раньше
         if msg2_lists:
-            msg2 = config['msg']['early_leaved_history'] + '\n' + '\n\n'.join(msg2_lists)
+            msg2_1 = config['msg']['early_leaved_history'] + '\n' + '\n\n'.join(msg2_lists)
+            msg2_2 = config['msg']['total'] + ' ' + str(total_early_lived_time)
+            msg2 = msg2_1 + '\n\n' + msg2_2
         # Если в данный период он ни разу не ушел раньше времени
         else:
             msg2 = config['msg']['early_leaved_history'] + '\n' + config['msg']['no_violation']
 
-        msg = msg1 + '\n\n' + msg2
+        # Пропущенные дни
+        msg3 = config['msg']['missed_days'] + ' ' + str(missed_days)
+
+        lines = config['msg']['lines']
+        msg = msg1 + '\n' + lines + '\n' + msg2 + '\n' + lines + '\n' + msg3
 
         # Кнопка "Главное меню"
         button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])

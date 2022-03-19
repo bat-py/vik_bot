@@ -446,4 +446,3 @@ def test():
     connection.close()
     return user_history
 
-print(test())
