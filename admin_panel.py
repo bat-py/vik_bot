@@ -268,7 +268,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     """
     str_numbers = [str(i) for i in range(1,31)]
 
-    # Если нажал на кнопку назад
+    # Если нажал на кнопку Главное меню
     if message.text == config['msg']['main_menu']:
         await state.finish()
         await main_menu(message)
@@ -288,6 +288,9 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         # Этот лист хранит блоки сообщения каждого опоздавшего дня (дата, опоздал на, причина)
         msg_late_days_list = []
 
+        # Суммарное время опозданий
+        tatal_late_hours = datetime.timedelta()
+
         # В day хранится: (id, user_id, date, comment, time). Цикл заполняет лист msg_late_days_list
         for day in worker_report_list:
             # Определяем оставил ли он комментарию
@@ -298,6 +301,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
             # Если есть время значит он пришел с опозданием
             if day[4]:
+                time = datetime.timedelta
                 # Определим на сколько часов и минут он опоздал
                 start_hour = int(config['time']['start_hour'])
                 start_minute = int(config['time']['start_minute'])
@@ -325,21 +329,60 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
             msg_late_days_list.append(msg_block)
 
-        # Составим сообщение
-        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        # Составим 1-часть сообщение об опоздании
+        msg1_1 = config['msg']['you_chose'] + chosen_worker[1]
 
         # Если у выбранного пользователя нашлись опоздания
         if msg_late_days_list:
-            msg2 = '\n\n'.join(msg_late_days_list)
+            msg1_2 = '\n\n'.join(msg_late_days_list)
         # Если ни разу не опоздал
         else:
-            msg2 = config['msg']['no_latecomes']
+            msg1_2 = config['msg']['no_violation']
+
+        msg1 = msg1_1 + '\n\n' + config['msg']['late_history'] + '\n' + msg1_2
+
+        # Создадим 2-часть сообщения об уходе до окончания рабочего дня
+        # Получаем историю ухода(раньше времени) выбранного человека в указанном периоде: [(id, date, time), ...]
+        user_leave_history_list = sql_handler.early_leaved_user_history(int(chosen_worker[0]), chosen_term)
+
+        # Хранит части сообщения (каждый его элемент это отчет одного дня)
+        msg2_lists = []
+        # Хранит суммарное время(раньше времени)
+        total_early_lived_time = datetime.timedelta()
+        for day in user_leave_history_list:
+            total_early_lived_time += datetime.timedelta(hours=day[2].hour, minutes=day[2].minute, seconds=day[2].second)
+
+            msg2_1 = config['msg']['date'] + ' ' + day[1].strftime('%Y-%m-%d')
+            msg2_2 = config['msg']['leaved'] + ' ' + day[2].strftime('%H:%M:%S')
+
+            # Определим на сколько часов и минут он ушел раньше
+            end_time_delta = datetime.timedelta(
+                hours=int(config['time']['end_hour']),
+                minutes=int(config['time']['end_minute'])
+            )
+            leaved_time_delta = datetime.timedelta(
+                hours=day[2].hour,
+                minutes=day[2].minute,
+                seconds=day[2].second
+            )
+            early_seconds = end_time_delta - leaved_time_delta
+            early_time_hour = (datetime.datetime.min + early_seconds).time()
+            early_time = early_time_hour.strftime("%H:%M:%S")
+            msg2_3 = config['msg']['early_leaved'] + ' ' + early_time
+            msg2_block = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
+            msg2_lists.append(msg2_block)
+
+        # Если в данный период он ушел раньше
+        if msg2_lists:
+            msg2 = config['msg']['early_leaved_history'] + '\n' + '\n\n'.join(msg2_lists)
+        # Если в данный период он ни разу не ушел раньше времени
+        else:
+            msg2 = config['msg']['early_leaved_history'] + '\n' + config['msg']['no_violation']
 
         msg = msg1 + '\n\n' + msg2
 
         # Кнопка "Главное меню"
         button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
-
         await message.answer(
             msg,
             reply_markup=button

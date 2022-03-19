@@ -241,7 +241,11 @@ async def check_end_of_the_day(dp: Dispatcher):
         # Определим на сколько часов и минут он ушел раньше
         end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
                                             minutes=int(config['time']['end_minute']))
-        leaved_time_delta = datetime.timedelta(hours=leaved_user_info[2].hour, minutes=leaved_user_info[2].minute)
+        leaved_time_delta = datetime.timedelta(
+            hours=leaved_user_info[2].hour,
+            minutes=leaved_user_info[2].minute,
+            seconds=leaved_user_info[2].second
+        )
         early_seconds = end_time_delta - leaved_time_delta
         early_time_hour = (datetime.datetime.min + early_seconds).time()
         early_time = early_time_hour.strftime("%H:%M:%S")

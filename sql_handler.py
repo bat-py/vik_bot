@@ -393,11 +393,6 @@ def get_early_leaved_users():
     return early_leaved_users_dict_clear
 
 
-a = get_early_leaved_users()
-print(a)
-print(len(a))
-
-
 def early_leaved_writer(user_id, date, time):
     """
     Создает новую строку в таблице early_leaved
@@ -439,3 +434,16 @@ def early_leaved_user_history(user_id, term):
 
     connection.close()
     return user_history
+
+
+def test():
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""SELECT * FROM "early_leaved" WHERE id = 14;""")
+    user_history = cursor.fetchall()
+
+    connection.close()
+    return user_history
+
+print(test())
