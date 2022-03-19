@@ -393,6 +393,7 @@ def get_early_leaved_users():
     return early_leaved_users_dict_clear
 
 
+###
 def early_leaved_writer(user_id, date, time):
     """
     Создает новую строку в таблице early_leaved
@@ -410,6 +411,7 @@ def early_leaved_writer(user_id, date, time):
     connection.close()
 
 
+###
 def early_leaved_user_history(user_id, term):
     """
     :param term:
@@ -436,11 +438,68 @@ def early_leaved_user_history(user_id, term):
     return user_history
 
 
+def get_user_in_out_history(user_id, date):
+    """
+    Может возвращать 3 варианта:
+    Когда нету входа: False
+    Когда есть входа в выхода нет: (in_time, False)
+    Когда есть вход и выход: (in_time, out_time)
+    :param date:
+    :param user_id:
+    :return: Возвращает самый первый вход и последний выход указанного дня: (in_time, out_time). Если не пришел в тот день, тогда false
+
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    in_device = config['device']['in_device']
+    out_device = config['device']['out_device']
+
+    cursor.execute("""
+                    SELECT time FROM "ivms" 
+                    WHERE date = ? AND ID LIKE ? AND DeviceNo = ?
+                    ORDER BY datetime;
+                    """,
+                   (date, '%0'+str(user_id), in_device)
+                   )
+    # Берем самый первый элемент из списка, так как нам нужен только время входа
+    user_in = cursor.fetchone()
+
+    # Если он пришел хотя бы один вход в выбранный день
+    if user_in:
+        in_time = user_in[0]
+
+        # Получим out_time. Для этого берем самый последний запись в выбранном числе
+        cursor.execute("""
+                        SELECT time FROM "ivms" 
+                        WHERE date = ? AND ID LIKE ? AND DeviceNo = ?
+                        ORDER BY datetime DESC;
+                        """,
+                       (date, '%0' + str(user_id), out_device)
+                       )
+        # Получаем время выхода
+        user_out = cursor.fetchone()
+
+        # Если получили хотябы один выход в выбранном числе. Иногда бывает вход есть, а выхода нет. Поэтому нужно проверять
+        if user_out:
+            out_time = user_out[0]
+        else:
+            out_time = False
+
+        connection.close()
+        return in_time, out_time
+    else:
+        connection.close()
+        return False
+
+
+print(get_user_in_out_history(3, datetime.datetime.now().date() - datetime.timedelta(days=2)))
+
 def test():
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT * FROM "early_leaved" WHERE id = 14;""")
+    cursor.execute("""SELECT datetime, date, time, DeviceNo FROM "ivms";""")
     user_history = cursor.fetchall()
 
     connection.close()
