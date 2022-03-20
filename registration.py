@@ -97,7 +97,7 @@ async def user_id_confirmed(message: types.Message, state: FSMContext):
         await message.bot.send_message(
             message.chat.id,
             msg,
-            delete_button
+            reply_markup=delete_button
         )
 
     elif message.text == 'Нет':
