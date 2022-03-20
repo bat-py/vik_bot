@@ -493,8 +493,6 @@ def get_user_in_out_history(user_id, date):
         return False
 
 
-print(get_user_in_out_history(3, datetime.datetime.now().date() - datetime.timedelta(days=2)))
-
 def test():
     connection = connection_creator()
     cursor = connection.cursor()

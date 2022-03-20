@@ -20,6 +20,7 @@ class MyStates(StatesGroup):
 async def admin_command_handler(message: types.Message, state: FSMContext):
     """
     Обработывает команду /admin
+    :param state:
     :param message:
     :return:
     """
@@ -115,7 +116,7 @@ async def check_password(message: types.Message, state: FSMContext):
 
 async def main_menu(message: types.Message):
     # Создаем кнопки
-    buttons_name = [[config['msg']['on_off']], [config['msg']['missing']], [config['msg']['report']]]
+    buttons_name = [[config['msg']['report']], [config['msg']['missing']], [config['msg']['on_off']]]
 
     buttons = button_creators.reply_keyboard_creator(buttons_name)
 
@@ -144,6 +145,12 @@ async def on_off_menu_handler(message: types.Message):
             sql_handler.update_admin_notification_status(message.chat.id, 1)
             msg = config['msg']['notification_on']
 
+        # Удаляем "Вкл/Выкл уведомление"(on_off
+        try:
+            await message.bot.delete_message(message.chat.id, message.message_id)
+        except:
+            pass
+
         await message.bot.send_message(
             message.chat.id,
             msg
@@ -171,11 +178,21 @@ async def missing_list_handler(message: types.Message):
 
     # Получаем список опоздавших: [(ID, Name, chat_id), ...]
     latecommer_users = sql_handler.get_users_name_chat_id(latecommers)
-    latecommer_users_names_list = list(map(lambda user: user[1], latecommer_users))
+
+    latecommer_users_names_list = []
+    for n, user in enumerate(latecommer_users):
+        msg = f"{n+1}. {user[1]}"
+        latecommer_users_names_list.append(msg)
 
     msg1 = config['msg']['missing_full']
     msg2 = '\n'.join(latecommer_users_names_list)
     msg = msg1 + '\n' + msg2
+
+    # Удаляем сообщение "missing"
+    try:
+        await message.bot.delete_message(message.chat.id, message.message_id)
+    except:
+        pass
 
     await message.bot.send_message(
         message.chat.id,
@@ -229,15 +246,23 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     workers_numbers_list = users_dict.keys()
 
     if message.text == config['msg']['main_menu']:
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
-
         await state.finish()
+
+        try:
+            for i in range(3):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
+
         await main_menu(message)
+
     # Если эта информация уже есть, значит админ вернулся назад со следующего меню
-    elif data.get('chosen_worker'):
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
+    elif data.get('chosen_worker') and message.text == config['msg']['back']:
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         chosen_worker = data['chosen_worker']
         # Меняем статус на waiting_for_term
@@ -258,8 +283,11 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
 
     # Если админ первый раз в этом меню и  выбрал существующий номер, спросим сколько дней отчета надо показать
     elif message.text in workers_numbers_list:
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         chosen_worker_info = users_dict[message.text]
         # Сохраним выбранного работника в память (ID, name, Who, chat_id)
@@ -284,10 +312,14 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     # Если админ выбрал несуществующий номер
     else:
         # Создадим кнопку "Главное меню"
-        button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
+        # button = button_creators.reply_keyboard_creator([[[config['msg']['back'], config['msg']['main_menu']]])
+        try:
+            await message.bot.delete_message(message.chat.id, message.message_id)
+        except:
+            pass
 
         msg = config['msg']['wrong_number']
-        await message.answer(msg, reply_markup=button)
+        await message.answer(msg) # , reply_markup=button)
 
 
 async def chosen_term_handler(message: types.Message, state: FSMContext):
@@ -302,16 +334,22 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     # Если нажал на кнопку Главное меню
     if message.text == config['msg']['main_menu']:
         # Удаляем 2 последние сообщения
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
+        try:
+            for i in range(3):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         await state.finish()
         await main_menu(message)
     #Если нажал на кнопку Назад вместо количество дней
     elif message.text == config['msg']['back']:
         # Удаляем 2 последние сообщения
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         await MyStates.waiting_for_worker_number.set()
         await report_handler(message, state=state)
@@ -319,8 +357,11 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     # Если отправил число от 1 до 30
     elif message.text.strip() in str_numbers:
         # Удаляем 2 последние сообщения
-        for i in range(2):
-            await message.bot.delete_message(message.chat.id, message.message_id-i)
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         # Установим новое состояние чтобы кнопка Назад после показа
         await MyStates.waiting_report_page_buttons.set()
@@ -482,6 +523,12 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
     else:
         # Создадим кнопку "Главное меню"
         button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
 
         msg = config['msg']['wrong_term']
         await message.answer(msg, reply_markup=button)
@@ -500,6 +547,16 @@ async def report_page_buttons(message: types.Message, state: FSMContext):
 
         await choosen_worker_handler(message, state)
 
+    elif message.text == config['msg']['main_menu']:
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(3):
+                await message.bot.delete_message(message.chat.id, message.message_id-i)
+        except:
+            pass
+
+        await state.finish()
+        await main_menu(message)
 
 
 def early_leave_check(time):
