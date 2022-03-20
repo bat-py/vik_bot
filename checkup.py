@@ -228,6 +228,13 @@ async def check_end_of_the_day(dp: Dispatcher):
     :param dp:
     :return:
     """
+    today = datetime.datetime.today()
+    # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
+    day_of_week = datetime.datetime.isoweekday(today)
+    # Если сегодня выходной то скрипт остановиться
+    if str(day_of_week) in config['time']['day_off']:
+        return
+
     # Получим dict тех кто ушел раньше: {id(int): (ID(00000012), date, time), ...}
     early_leaved_users_dict = sql_handler.get_early_leaved_users()
 
@@ -261,7 +268,7 @@ async def check_end_of_the_day(dp: Dispatcher):
     # Составим сообщения чтобы отправить админам
     msg1 = config['msg']['early_leaved_users']
     msg2 = '\n\n'.join(msg2_list)
-    print(msg1 + '\n' + msg2)
+
     # Отправим админам кто ушел раньше
     # Получаем список [(chat_id, first_name, notification), ...] админов где notification = 1
     admins_list = sql_handler.get_admins_where_notification_on()
@@ -284,7 +291,6 @@ async def schedule_jobs(dp):
     scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp, ))
     scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
     scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour+1, minute=end_minute, args=(dp, ))
-#    scheduler.add_job(check_end_of_the_day, 'cron', hour=2, minute=59, args=(dp, ))
 
 
 def register_handlers(dp: Dispatcher):
