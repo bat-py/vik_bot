@@ -1,3 +1,4 @@
+import asyncio
 import configparser
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
@@ -181,7 +182,7 @@ async def missing_list_handler(message: types.Message):
 
     latecommer_users_names_list = []
     for n, user in enumerate(latecommer_users):
-        msg = f"{n+1}. {user[1]}"
+        msg = f"{n + 1}. {user[1]}"
         latecommer_users_names_list.append(msg)
 
     msg1 = config['msg']['missing_full']
@@ -199,6 +200,12 @@ async def missing_list_handler(message: types.Message):
         msg
     )
 
+    try:
+        await asyncio.sleep(int(config['msg']['auto_del']))
+        await message.bot.delete_message(message.chat.id, message.message_id + 1)
+    except:
+        pass
+
 
 async def report_handler(message: types.Message, state: FSMContext):
     """
@@ -214,7 +221,7 @@ async def report_handler(message: types.Message, state: FSMContext):
     # Составим из users_list библиотеку {1: [ID, name, Who, chat_id], 2:...}
     users_dict = {}
     for i in range(len(users_list)):
-        users_dict[str(i+1)] = users_list[i]
+        users_dict[str(i + 1)] = users_list[i]
     # Сохраним users_dict в state, он потом нам понадобиться
     await state.update_data(users_dict=users_dict)
 
@@ -250,7 +257,7 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
 
         try:
             for i in range(3):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -260,7 +267,7 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     elif data.get('chosen_worker') and message.text == config['msg']['back']:
         try:
             for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -285,7 +292,7 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
     elif message.text in workers_numbers_list:
         try:
             for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -319,7 +326,7 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
             pass
 
         msg = config['msg']['wrong_number']
-        await message.answer(msg) # , reply_markup=button)
+        await message.answer(msg)  # , reply_markup=button)
 
 
 async def chosen_term_handler(message: types.Message, state: FSMContext):
@@ -336,18 +343,18 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         # Удаляем 2 последние сообщения
         try:
             for i in range(3):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
         await state.finish()
         await main_menu(message)
-    #Если нажал на кнопку Назад вместо количество дней
+    # Если нажал на кнопку Назад вместо количество дней
     elif message.text == config['msg']['back']:
         # Удаляем 2 последние сообщения
         try:
             for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -359,7 +366,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         # Удаляем 2 последние сообщения
         try:
             for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -410,7 +417,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
                         # Определим на сколько часов и минут он опоздал
                         beginning_delta = datetime.timedelta(hours=int(config['time']['start_hour']),
-                                                         minutes=int(config['time']['start_minute']))
+                                                             minutes=int(config['time']['start_minute']))
                         came_time = worker_report_dict[day][4]
                         came_time_delta = datetime.timedelta(hours=came_time.hour, minutes=came_time.minute,
                                                              seconds=came_time.second)
@@ -475,13 +482,15 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                     # Хранит в себе "Приход:\n Ушел в: "
                     msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + mesg3
 
-                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + config['msg']['three_lines'] + '</b>'
+                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                         config['msg']['three_lines'] + '</b>'
                 msg2 = msg2_1 + '\n' + msg2_2
 
                 # Добавим созданную часть сообщения в msg2_block_list
                 msg2_block_list.append(msg2)
             except Exception as e:
-                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + config['msg']['three_lines'] + '</b>'
+                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                         config['msg']['three_lines'] + '</b>'
                 msg2_2 = config['msg']['came']
                 msg2_3 = config['msg']['leaved']
                 msg2 = msg2_1 + '\n' + msg2_2 + '  <b>|</b>  ' + msg2_3
@@ -526,7 +535,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         # Удаляем 2 последние сообщения
         try:
             for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
@@ -551,7 +560,7 @@ async def report_page_buttons(message: types.Message, state: FSMContext):
         # Удаляем 2 последние сообщения
         try:
             for i in range(3):
-                await message.bot.delete_message(message.chat.id, message.message_id-i)
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
         except:
             pass
 
