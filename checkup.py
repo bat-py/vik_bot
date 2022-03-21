@@ -46,7 +46,11 @@ async def check_users_in_logs(dp: Dispatcher):
 
     # Составляет сообщение чтобы отправить админам
     msg1 = config['msg']['list_of_latecomers']
-    msg2 = '\n'.join(latecommer_users_names)
+    # Если есть опоздавшие
+    if latecommer_users_names:
+        msg2 = '\n'.join(latecommer_users_names)
+    else:
+        msg2 = config['msg']['no_latecomers']
     msg = msg1 + '\n' + msg2
 
     # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список опоздавших
@@ -54,18 +58,21 @@ async def check_users_in_logs(dp: Dispatcher):
 
     # Отправляет сообщения всем админам
     for i in admins_list:
-        await dp.bot.send_message(
-            i[0],
-            msg
-        )
+        try:
+            await dp.bot.send_message(
+                i[0],
+                msg
+            )
+        except Exception as e:
+            print('checkup.check_users_in_logs(admins_list):  ', str(e))
 
     # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
     for user in latecommer_users:
         # Так как он будет отправлять каждому опоздавшему сообщения, но если кто-то заблокировал бот, он его пропустит
         try:
             await send_notification_to_latecomer(dp, user)
-        except:
-            pass
+        except Exception as e:
+            print('checkup.check_users_in_logs(latecommer_users):  ', str(e))
 
 
 async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
@@ -158,10 +165,13 @@ async def check_last_2min_logs(dp: Dispatcher):
                         msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
 
                         for admin_id in admins_chat_id_list:
-                            await dp.bot.send_message(
-                                admin_id,
-                                msg
-                            )
+                            try:
+                                await dp.bot.send_message(
+                                    admin_id,
+                                    msg
+                                )
+                            except Exception as e:
+                                print('checkup.check_last_2min_logs:  ', str(e))
 
 
 async def leave_comment_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -266,8 +276,16 @@ async def check_end_of_the_day(dp: Dispatcher):
         msg2_list.append(msg)
 
     # Составим сообщения чтобы отправить админам
-    msg1 = config['msg']['early_leaved_users']
-    msg2 = '\n\n'.join(msg2_list)
+    lines = config['msg']['three_lines']
+    msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+    msg2 = config['msg']['early_leaved_users']
+    # Если хоть кто-то ушел раньше времени
+    if msg2_list:
+        msg3 = '\n\n'.join(msg2_list)
+    # Если все ушли после окончания дня(нету нарушений)
+    else:
+        msg3 = config['msg']['empty']
+    msg = msg1 + '\n' + msg2 + '\n' + msg3
 
     # Отправим админам кто ушел раньше
     # Получаем список [(chat_id, first_name, notification), ...] админов где notification = 1
@@ -275,10 +293,13 @@ async def check_end_of_the_day(dp: Dispatcher):
 
     # Отправим сообщение всем админам список тех кто ушел раньше и на сколько
     for admin in admins_list:
-        await dp.bot.send_message(
-            admin[0],
-            msg1 + '\n' + msg2
-        )
+        try:
+            await dp.bot.send_message(
+                admin[0],
+                msg
+            )
+        except Exception as e:
+            print('checkup.check_end_of_the_day:  ' + str(e))
 
 
 async def schedule_jobs(dp):
