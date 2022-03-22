@@ -15,7 +15,7 @@ class MyStates(StatesGroup):
     waiting_for_user_id_confirmation = State()
 
 
-async def start_command_handler(message: types.Message):
+async def registration_command_handler(message: types.Message):
     msg1 = config['msg']['choose_your_name']
 
     # Creating list of members: id) firstname lastname
@@ -26,10 +26,13 @@ async def start_command_handler(message: types.Message):
 
     msg = msg1 + '\n' + msg2
 
+    button = button_creators.reply_keyboard_creator([[config['msg']['cancel']]])
+
     await MyStates.waiting_for_user_id.set()
     await message.bot.send_message(
         message.chat.id,
-        msg
+        msg,
+        reply_markup=button
     )
 
 
@@ -43,7 +46,15 @@ async def user_id_confirmation(message: types.Message, state: FSMContext):
     users_id = sql_handler.get_all_users_id()
     users_id_list = list(map(lambda user: int(user[0]), users_id))
 
-    if choosen_id.isdigit():
+    # Если нажал на кнопку отменить
+    if message.text == config['msg']['cancel']:
+        await state.finish()
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
+        except:
+            pass
+    elif choosen_id.isdigit():
         # Если пользователь выбрал существующий ID номер
         if int(choosen_id) in users_id_list:
             # Создаем сообщения о подтверждении и кнопки "Да" и "Нет"
@@ -108,7 +119,7 @@ async def user_id_confirmed(message: types.Message, state: FSMContext):
 
 def register_handlers(dp: Dispatcher):
     dp.register_message_handler(
-        start_command_handler,
+        registration_command_handler,
         commands=['registration']
     )
 
