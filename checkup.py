@@ -45,13 +45,15 @@ async def check_users_in_logs(dp: Dispatcher):
     latecommer_users_names = list(map(lambda user: user[1], latecommer_users))
 
     # Составляет сообщение чтобы отправить админам
-    msg1 = config['msg']['list_of_latecomers']
+    lines = config['msg']['three_lines']
+    msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+    msg2 = config['msg']['list_of_latecomers']
     # Если есть опоздавшие
     if latecommer_users_names:
-        msg2 = '\n'.join(latecommer_users_names)
+        msg3 = '\n'.join(latecommer_users_names)
     else:
-        msg2 = config['msg']['no_latecomers']
-    msg = msg1 + '\n' + msg2
+        msg3 = config['msg']['no_latecomers']
+    msg = msg1 + '\n' + msg2 + '\n' + msg3
 
     # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список опоздавших
     admins_list = sql_handler.get_admins_list()
