@@ -158,7 +158,7 @@ async def check_last_2min_logs(dp: Dispatcher):
                         now_delta = datetime.timedelta(hours=user[1].hour, minutes=user[1].minute, seconds=user[1].second)
                         late_second = now_delta - beginning_delta
                         late_time_hour = (datetime.datetime.min + late_second).time()
-                        late_time = late_time_hour.strftime("%H:%M:%S")
+                        late_time = late_time_hour.strftime("%H:%M")
 
                         # Запишем в таблицу "report" время прихода опоздавшего
                         sql_handler.late_time_writer(user_info[0], now_time)
@@ -166,7 +166,7 @@ async def check_last_2min_logs(dp: Dispatcher):
                         # Составим сообщения чтобы отправить админам
                         msg1 = f'<b>{user_info[1]}</b> '
                         msg2 = config['msg']['latecomer_came']
-                        msg3 = f"{config['msg']['arrival_time']} {now_time.strftime('%H:%M:%S')}"
+                        msg3 = f"{config['msg']['arrival_time']} {now_time.strftime('%H:%M')}"
                         msg4 = f"<b>{config['msg']['late_by']}</b> {late_time}"
                         msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
 
@@ -271,12 +271,12 @@ async def check_end_of_the_day(dp: Dispatcher):
         )
         early_seconds = end_time_delta - leaved_time_delta
         early_time_hour = (datetime.datetime.min + early_seconds).time()
-        early_time = early_time_hour.strftime("%H:%M:%S")
+        early_time = early_time_hour.strftime("%H:%M")
 
         # Получаем информацию рабочего (id, name, who, chat_id)
         user_data = sql_handler.get_user_info_by_id(user_id)
         msg2_1 = user_data[1]
-        msg2_2 = config['msg']['leaved'] + ' ' + leaved_user_info[2].strftime('%H:%M:%S')
+        msg2_2 = config['msg']['leaved'] + ' ' + leaved_user_info[2].strftime('%H:%M')
         msg2_3 = config['msg']['early_leaved'] + ' ' + early_time
         msg = msg2_1 + '\n' + msg2_2 + '\n' + msg2_3
         msg2_list.append(msg)
