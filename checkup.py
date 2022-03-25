@@ -50,7 +50,11 @@ async def check_users_in_logs(dp: Dispatcher):
     msg2 = config['msg']['list_of_latecomers']
     # Если есть опоздавшие
     if latecommer_users_names:
-        msg3 = '\n'.join(latecommer_users_names)
+        latecommer_users_names_with_numbers = []
+        for i in range(len(latecommer_users_names)):
+            user = f"{str(i+1)}. {latecommer_users_names[i]}"
+            latecommer_users_names_with_numbers.append(user)
+        msg3 = '\n'.join(latecommer_users_names_with_numbers)
     else:
         msg3 = config['msg']['no_latecomers']
     msg = msg1 + '\n' + msg2 + '\n' + msg3
