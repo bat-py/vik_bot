@@ -362,7 +362,7 @@ def get_early_leaved_users():
 
     cursor.execute("""
                     SELECT ID, date, time FROM ivms
-                    WHERE date >= cast(getdate()-1 as date) AND date < cast(getdate()+1 as date) AND
+                    WHERE date >= cast(getdate() as date) AND date < cast(getdate()+1 as date) AND
                     DeviceNo = ?
                     ORDER BY time DESC;
                     """,

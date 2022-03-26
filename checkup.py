@@ -19,14 +19,14 @@ class MyStates(StatesGroup):
 
 
 async def check_users_in_logs(dp: Dispatcher):
-    today = datetime.datetime.today()
+    #today = datetime.datetime.today()
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
-    day_of_week = datetime.datetime.isoweekday(today)
+    #day_of_week = datetime.datetime.isoweekday(today)
     # Если сегодня выходной то скрипт остановиться
-    if str(day_of_week) in config['time']['day_off']:
-        return
+    #if str(day_of_week) in config['time']['day_off']:
+    #    return
 
-    # Получаем ID тех кто пришел в 9:01 каждый день
+    # Получаем ID тех кто пришел в 9:05 каждый день
     ids_who_came = sql_handler.get_todays_logins()
     ids_who_came = [int(i[0]) for i in ids_who_came]
     # Список всех пользователей (только те где Who == 'Control')
@@ -44,41 +44,84 @@ async def check_users_in_logs(dp: Dispatcher):
     latecommer_users = sql_handler.get_users_name_chat_id(latecommers)
     latecommer_users_names = list(map(lambda user: user[1], latecommer_users))
 
-    # Составляет сообщение чтобы отправить админам
-    lines = config['msg']['three_lines']
-    msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
-    msg2 = config['msg']['list_of_latecomers']
-    # Если есть опоздавшие
-    if latecommer_users_names:
-        latecommer_users_names_with_numbers = []
-        for i in range(len(latecommer_users_names)):
-            user = f"{str(i+1)}. {latecommer_users_names[i]}"
-            latecommer_users_names_with_numbers.append(user)
-        msg3 = '\n'.join(latecommer_users_names_with_numbers)
+    today = datetime.datetime.today()
+    # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
+    day_of_week = datetime.datetime.isoweekday(today)
+
+    # Если сегодня не выходной. Админам отправит сообщение "Список опоздавших" а рабочим "Вы опоздали" с inline кнопкой
+    if str(day_of_week) not in config['time']['day_off']:
+        # Составляет сообщение чтобы отправить админам
+        lines = config['msg']['three_lines']
+        msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+        msg2 = config['msg']['list_of_latecomers']
+        # Если есть опоздавшие
+        if latecommer_users_names:
+            latecommer_users_names_with_numbers = []
+            for i in range(len(latecommer_users_names)):
+                user = f"{str(i + 1)}. {latecommer_users_names[i]}"
+                latecommer_users_names_with_numbers.append(user)
+            msg3 = '\n'.join(latecommer_users_names_with_numbers)
+        else:
+            msg3 = config['msg']['no_latecomers']
+        msg = msg1 + '\n' + msg2 + '\n' + msg3
+
+        # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список опоздавших
+        admins_list = sql_handler.get_admins_list()
+
+        # Отправляет сообщения всем админам
+        for i in admins_list:
+            try:
+                await dp.bot.send_message(
+                    i[0],
+                    msg
+                )
+            except Exception as e:
+                print('checkup.check_users_in_logs(admins_list):  ', str(e))
+
+        # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
+        for user in latecommer_users:
+            # Так как он будет отправлять каждому опоздавшему сообщения, но если кто-то заблокировал бот, он его пропустит
+            try:
+                await send_notification_to_latecomer(dp, user)
+            except Exception as e:
+                print('checkup.check_users_in_logs(latecommer_users):  ', str(e))
+    # Если сегодня выходной то рабочим не отправит сообщение что они опоздали
     else:
-        msg3 = config['msg']['no_latecomers']
-    msg = msg1 + '\n' + msg2 + '\n' + msg3
+        # Составляет сообщение чтобы отправить админам
+        lines = config['msg']['three_lines']
+        msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+        msg2 = config['msg']['list_those_who_came']
 
-    # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список опоздавших
-    admins_list = sql_handler.get_admins_list()
+        # Получаем ID тех кто пришел в 9:05 каждый день
+        ids_who_came = sql_handler.get_todays_logins()
+        ids_who_came = [int(i[0]) for i in ids_who_came]
 
-    # Отправляет сообщения всем админам
-    for i in admins_list:
-        try:
-            await dp.bot.send_message(
-                i[0],
-                msg
-            )
-        except Exception as e:
-            print('checkup.check_users_in_logs(admins_list):  ', str(e))
+        # Получаем информацию о тех кто пришел: [(ID, Name, chat_id), ...]
+        users = sql_handler.get_users_name_chat_id(ids_who_came)
+        users_names = list(map(lambda user: user[1], users))
 
-    # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
-    for user in latecommer_users:
-        # Так как он будет отправлять каждому опоздавшему сообщения, но если кто-то заблокировал бот, он его пропустит
-        try:
-            await send_notification_to_latecomer(dp, user)
-        except Exception as e:
-            print('checkup.check_users_in_logs(latecommer_users):  ', str(e))
+        # Если хоть кто-то пришел
+        if ids_who_came:
+            users_names_with_numbers = []
+            for i in range(len(users_names)):
+                user = f"{str(i + 1)}. {users_names[i]}"
+                users_names_with_numbers.append(user)
+            msg3 = '\n'.join(users_names_with_numbers)
+        else:
+            msg3 = config['msg']['nobody_came']
+        msg = msg1 + '\n' + msg2 + '\n' + msg3
+
+        # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список тех кто пришел в выходные
+        admins_list = sql_handler.get_admins_list()
+        # Отправляет сообщения всем админам
+        for i in admins_list:
+            try:
+                await dp.bot.send_message(
+                    i[0],
+                    msg
+                )
+            except Exception as e:
+                print('checkup.check_users_in_logs(admins_list):  ', str(e))
 
 
 async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
@@ -88,8 +131,8 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
     Отправит сообщения всем опоздавшим сообщения что они опоздали с inline кнопкой "Оставить комментарии",
     callback_data кнопки будет хранить "report.ID"
     latecomer_info хранит в себе (ID, Name, chat_id)  # ID это latecomer_id
+    :param latecomer_info:
     :param dp:
-    :param latecomer_id:
     :return:
     """
     # report_creator создает запись в таблице report(id, user_id, date) и возвращает генерированный код(id)
@@ -127,7 +170,8 @@ async def check_last_2min_logs(dp: Dispatcher):
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
     day_of_week = datetime.datetime.isoweekday(today)
 
-    if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
+    # if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
+    if activate_time <= now < end_time:
         # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
         last_2min_logs = sql_handler.get_last_2min_logins()
 
@@ -160,8 +204,9 @@ async def check_last_2min_logs(dp: Dispatcher):
                         late_time_hour = (datetime.datetime.min + late_second).time()
                         late_time = late_time_hour.strftime("%H:%M")
 
-                        # Запишем в таблицу "report" время прихода опоздавшего
-                        sql_handler.late_time_writer(user_info[0], now_time)
+                        # Запишем в таблицу "report" время прихода опоздавшего если сегодня не выходной
+                        if str(day_of_week) not in config['time']['day_off']:
+                            sql_handler.late_time_writer(user_info[0], now_time)
 
                         # Составим сообщения чтобы отправить админам
                         msg1 = f'<b>{user_info[1]}</b> '
