@@ -19,11 +19,11 @@ class MyStates(StatesGroup):
 
 
 async def check_users_in_logs(dp: Dispatcher):
-    #today = datetime.datetime.today()
+    # today = datetime.datetime.today()
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
-    #day_of_week = datetime.datetime.isoweekday(today)
+    # day_of_week = datetime.datetime.isoweekday(today)
     # Если сегодня выходной то скрипт остановиться
-    #if str(day_of_week) in config['time']['day_off']:
+    # if str(day_of_week) in config['time']['day_off']:
     #    return
 
     # Получаем ID тех кто пришел в 9:05 каждый день
@@ -76,7 +76,9 @@ async def check_users_in_logs(dp: Dispatcher):
                     msg
                 )
             except Exception as e:
-                print('checkup.check_users_in_logs(admins_list):  ', str(e))
+                with open('journal.txt', 'a') as w:
+                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                            'checkup.check_users_in_logs_1-try(admins_list):\n' + str(e) + '\n\n')
 
         # Каждому опоздавщему отправим сообщение чтобы он ответил почему опаздывает
         for user in latecommer_users:
@@ -84,7 +86,10 @@ async def check_users_in_logs(dp: Dispatcher):
             try:
                 await send_notification_to_latecomer(dp, user)
             except Exception as e:
-                print('checkup.check_users_in_logs(latecommer_users):  ', str(e))
+                with open('journal.txt', 'a') as w:
+                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                            'checkup.check_users_in_logs_2-try(latecommer_users):\n' + str(e) + '\n\n')
+
     # Если сегодня выходной то рабочим не отправит сообщение что они опоздали
     else:
         # Составляет сообщение чтобы отправить админам
@@ -121,7 +126,9 @@ async def check_users_in_logs(dp: Dispatcher):
                     msg
                 )
             except Exception as e:
-                print('checkup.check_users_in_logs(admins_list):  ', str(e))
+                with open('journal.txt', 'a') as w:
+                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                            'checkup.check_users_in_logs_3-try(admins_list):\n' + str(e) + '\n\n')
 
 
 async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
@@ -199,7 +206,8 @@ async def check_last_2min_logs(dp: Dispatcher):
                         beginning_delta = datetime.timedelta(hours=start_hour, minutes=start_minute)
 
                         now_time = datetime.time(user[1].hour, user[1].minute, user[1].second)
-                        now_delta = datetime.timedelta(hours=user[1].hour, minutes=user[1].minute, seconds=user[1].second)
+                        now_delta = datetime.timedelta(hours=user[1].hour, minutes=user[1].minute,
+                                                       seconds=user[1].second)
                         late_second = now_delta - beginning_delta
                         late_time_hour = (datetime.datetime.min + late_second).time()
                         late_time = late_time_hour.strftime("%H:%M")
@@ -222,6 +230,9 @@ async def check_last_2min_logs(dp: Dispatcher):
                                     msg
                                 )
                             except Exception as e:
+                                with open('journal.txt', 'a') as w:
+                                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                                            'checkup.check_last_2min_logs:\n' + str(e) + '\n\n')
                                 print('checkup.check_last_2min_logs:  ', str(e))
 
 
@@ -350,7 +361,9 @@ async def check_end_of_the_day(dp: Dispatcher):
                 msg
             )
         except Exception as e:
-            print('checkup.check_end_of_the_day:  ' + str(e))
+            with open('journal.txt', 'a') as w:
+                w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                        'checkup.check_end_of_the_day:\n' + str(e) + '\n\n')
 
 
 async def schedule_jobs(dp):
@@ -360,9 +373,9 @@ async def schedule_jobs(dp):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute+5, args=(dp, ))
+    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute + 5, args=(dp,))
     scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
-    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour+1, minute=end_minute, args=(dp, ))
+    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour + 1, minute=end_minute, args=(dp,))
 
 
 def register_handlers(dp: Dispatcher):

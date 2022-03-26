@@ -400,14 +400,39 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
         msg2_block_list = []
         for day in chosen_days:
-            # Если при процессе сбора данных одного дня, тогда в это число напишем что "Данных нет в базе"
+            # Если при процессе сбора данных одного дня выйдет ошибка, тогда в это число напишем что пустые строки: "Приход: | Уход: "
             try:
-                # Если данное число(date) выходной, тогда этот день пропустим
-                if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
-                    continue
-
-                # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или (False,False)
+                # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
                 in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
+
+                # Если данное число(date) выходной, тогда напишем: "🗓 Выходные\n Время прихода | Время ухода или просто "🗓 Выходные\n Не пришел"
+                if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+                    mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                             config['msg']['three_lines'] + '</b>'
+                    mesg2 = config['msg']['weekend']
+
+                    # Если в in_out_time: False
+                    if not in_out_time:
+                        mesg3 = config['msg']['dont_came']
+                    # Если в in_out_time: (in_time, out_time)
+                    elif in_out_time[0] and in_out_time[1]:
+                        mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
+                        mesg3_2 = config['msg']['leaved'] + ' ' + in_out_time[1].strftime('%H:%M')
+                        mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
+                    # Если в in_out_time: (in_time, False)
+                    else:
+                        mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
+                        mesg3_2 = config['msg']['leaved']
+                        mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
+
+                    # Составим сообщение
+                    msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
+
+                    # Добавим созданную часть сообщения в msg2_block_list
+                    msg2_block_list.append(msg2)
+
+                    # Все что внизу пропустим
+                    continue
 
                 if day in worker_report_dict:
                     # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time)
