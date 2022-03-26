@@ -315,7 +315,7 @@ async def schedule_jobs(dp):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour+5, minute=start_minute, args=(dp, ))
+    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute+5, args=(dp, ))
     scheduler.add_job(check_last_2min_logs, 'interval', seconds=120, args=(dp,))
     scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour+1, minute=end_minute, args=(dp, ))
 
