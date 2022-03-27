@@ -101,12 +101,12 @@ async def check_users_in_logs(dp: Dispatcher):
         ids_who_came = sql_handler.get_todays_logins()
         ids_who_came = [int(i[0]) for i in ids_who_came]
 
-        # Получаем информацию о тех кто пришел: [(ID, Name, chat_id), ...]
-        users = sql_handler.get_users_name_chat_id(ids_who_came)
-        users_names = list(map(lambda user: user[1], users))
-
         # Если хоть кто-то пришел
         if ids_who_came:
+            # Получаем информацию о тех кто пришел: [(ID, Name, chat_id), ...]
+            users = sql_handler.get_users_name_chat_id(ids_who_came)
+            users_names = list(map(lambda user: user[1], users))
+
             users_names_with_numbers = []
             for i in range(len(users_names)):
                 user = f"{str(i + 1)}. {users_names[i]}"
