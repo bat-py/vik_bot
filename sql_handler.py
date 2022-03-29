@@ -191,7 +191,7 @@ def get_last_2min_logins():
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= DATEADD(minute, -2 , GETDATE());""")
+    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= DATEADD(minute, -1 , GETDATE());""")
     # cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
 
     logins = cursor.fetchall()
