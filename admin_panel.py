@@ -485,12 +485,9 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                         missed_days += 1
                 # Если в таблице report не найден данный день, значит он пришел во время
                 else:
-                    try:
-                        mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
-                    except:
-                        mesg1 = config['msg']['came']
-
                     if in_out_time:
+                        mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
+
                         # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
                         # timedelta: чтобы определить суммарное время
                         out_check = early_leave_check(in_out_time[1])
@@ -506,6 +503,8 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                         # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
                         total_early_lived_time += out_check[1]
                     else:
+                        mesg1 = config['msg']['came']
+
                         mesg2 = config['msg']['leaved']
                         mesg3 = ''
                         total_early_lived_time += datetime.timedelta(0)
