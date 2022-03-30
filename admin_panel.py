@@ -401,14 +401,14 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
         msg2_block_list = []
         for day in chosen_days:
             # Если при процессе сбора данных одного дня выйдет ошибка, тогда в это число напишем что пустые строки: "Приход: | Уход: "
-            try:
+            if True:
                 # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
                 in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
 
                 # Если данное число(date) выходной, тогда напишем: "🗓 Выходные\n Время прихода | Время ухода или просто "🗓 Выходные\n Не пришел"
                 if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
                     mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
-                             config['msg']['three_lines'] + '</b>'
+                            config['msg']['three_lines'] + '</b>'
                     mesg2 = config['msg']['weekend']
 
                     # Если в in_out_time: False
@@ -455,25 +455,28 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
 
                         mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
 
-                        # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
-                        # timedelta: чтобы определить суммарное время
-                        out_check = early_leave_check(in_out_time[1])
-                        # Если есть время ухода и раннего ухода
-                        mesg2_5 = out_check[0]
-                        if '#' in mesg2_5:
-                            ms = mesg2_5.split('#')
-                            mesg2 = ms[0]
-                            mesg5 = f"\n{ms[1]}"
+                        if in_out_time:
+                            # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
+                            # timedelta: чтобы определить суммарное время
+                            out_check = early_leave_check(in_out_time[1])
+                            # Если есть время ухода и раннего ухода
+                            mesg2_5 = out_check[0]
+                            if '#' in mesg2_5:
+                                ms = mesg2_5.split('#')
+                                mesg2 = ms[0]
+                                mesg5 = f"\n{ms[1]}"
+                            else:
+                                mesg2 = mesg2_5
+                                mesg5 = ''
+                            # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
+                            total_early_lived_time += out_check[1]
                         else:
-                            mesg2 = mesg2_5
+                            mesg2 = config['msg']['leaved']
                             mesg5 = ''
-
-                        # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
-                        total_early_lived_time += out_check[1]
+                            total_early_lived_time += datetime.timedelta(0)
 
                         # Хранит в себе "Приход:\n Опоздал на:\n Причина:\n Ушел в:"
                         msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4 + mesg5
-
                     # Так как столбец time пуст, значит он не пришел
                     else:
                         mesg1 = config['msg']['did_not_come']
@@ -487,21 +490,25 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                     except:
                         mesg1 = config['msg']['came']
 
-                    # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
-                    # timedelta: чтобы определить суммарное время
-                    out_check = early_leave_check(in_out_time[1])
-                    # Если есть время ухода и раннего ухода
-                    mesg2_3 = out_check[0]
-                    if '#' in mesg2_3:
-                        ms = mesg2_3.split('#')
-                        mesg2 = ms[0]
-                        mesg3 = f"\n{ms[1]}"
+                    if in_out_time:
+                        # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
+                        # timedelta: чтобы определить суммарное время
+                        out_check = early_leave_check(in_out_time[1])
+                        # Если есть время ухода и раннего ухода
+                        mesg2_5 = out_check[0]
+                        if '#' in mesg2_5:
+                            ms = mesg2_5.split('#')
+                            mesg2 = ms[0]
+                            mesg3 = f"\n{ms[1]}"
+                        else:
+                            mesg2 = mesg2_5
+                            mesg3 = ''
+                        # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
+                        total_early_lived_time += out_check[1]
                     else:
-                        mesg2 = mesg2_3
+                        mesg2 = config['msg']['leaved']
                         mesg3 = ''
-
-                    # Прибовляем время в суммарное время раннего ухода (если он ушел раньше. А если нет то timedelta = 0)
-                    total_early_lived_time += out_check[1]
+                        total_early_lived_time += datetime.timedelta(0)
 
                     # Хранит в себе "Приход:\n Ушел в: "
                     msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + mesg3
@@ -509,15 +516,6 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                 msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
                          config['msg']['three_lines'] + '</b>'
                 msg2 = msg2_1 + '\n' + msg2_2
-
-                # Добавим созданную часть сообщения в msg2_block_list
-                msg2_block_list.append(msg2)
-            except Exception as e:
-                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
-                         config['msg']['three_lines'] + '</b>'
-                msg2_2 = config['msg']['came']
-                msg2_3 = config['msg']['leaved']
-                msg2 = msg2_1 + '\n' + msg2_2 + '  <b>|</b>  ' + msg2_3
 
                 # Добавим созданную часть сообщения в msg2_block_list
                 msg2_block_list.append(msg2)
