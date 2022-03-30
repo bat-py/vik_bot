@@ -453,7 +453,10 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                         # Прибавим время опоздания в суммарную delta
                         total_late_hours += late_time_in_seconds
 
-                        mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                        if worker_report_dict[day][3]:
+                            mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                        else:
+                            mesg4 = config['msg']['reason']
 
                         if in_out_time:
                             # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
@@ -480,7 +483,12 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                     # Так как столбец time пуст, значит он не пришел
                     else:
                         mesg1 = config['msg']['did_not_come']
-                        mesg2 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+
+                        if worker_report_dict[day][3]:
+                            mesg2 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                        else:
+                            mesg2 = config['msg']['reason']
+
                         msg2_2 = mesg1 + '\n' + mesg2
                         missed_days += 1
                 # Если в таблице report не найден данный день, значит он пришел во время
