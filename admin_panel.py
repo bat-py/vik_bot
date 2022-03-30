@@ -437,7 +437,7 @@ async def chosen_term_handler(message: types.Message, state: FSMContext):
                 if day in worker_report_dict:
                     # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time)
                     if worker_report_dict[day][4]:
-                        mesg1 = config['msg']['came'] + ' ' + str(worker_report_dict[day][4])
+                        mesg1 = config['msg']['came'] + ' ' + str(worker_report_dict[day][4].strftime("%H:%M"))
 
                         # Определим на сколько часов и минут он опоздал
                         beginning_delta = datetime.timedelta(hours=int(config['time']['start_hour']),
