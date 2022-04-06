@@ -672,7 +672,91 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
     :param callback_query:
     :return:
     """
-    print('3')
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
+    chosen_worker = all_data['chosen_worker']
+    chosen_term = all_data['term']
+
+    # Хранит суммарное время(раньше времени)
+    total_early_lived_time = datetime.timedelta()
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    for day in chosen_days:
+        # Если данное число(date) не выходной
+        if str(datetime.date.isoweekday(day)) not in config['time']['day_off']:
+            # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
+            in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
+
+            # Если в in_out_time хранится: (in_time, out_time)
+            if in_out_time and in_out_time[1]:
+                # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20" или "Уход: 17:00:00 # Ушел раньше времени: 0:15" или "Ушел в: Нету данных"
+                # timedelta: чтобы определить суммарное время
+                out_check = early_leave_check(in_out_time[1])
+
+                # Если в out_check[0] есть # значит он ушел раньше времени
+                mesg2_1 = out_check[0]
+                if '#' in mesg2_1:
+                    ms = mesg2_1.split('#')
+                    mesg3 = ms[0]
+                    mesg4 = ms[1]
+
+                    # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
+                    total_early_lived_time += out_check[1]
+
+                    # Хранит: "--- 29.03.2022 ---"
+                    mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                            config['msg']['three_lines'] + '</b>'
+                    # Хранит "Приход: 15:12"
+                    mesg2 = config['msg']['came'] + ' ' + str(in_out_time[0].strftime("%H:%M"))
+                    msg2_2 = mesg1 + '\n' + mesg2 + '  <b>|</b>  ' + mesg3 + '\n' + mesg4
+
+                    msg2_block_list.append(msg2_2)
+
+    # Если хоть раз ушел раньше времени
+    if msg2_block_list:
+        # Из дельта переводим на обычный время раннего ухода
+        total_early_time = datetime.datetime.min + total_early_lived_time
+        if total_early_time.day == 1:
+            total_early = total_early_time.strftime('%H:%M')
+        else:
+            total_early = total_early_time.strftime('%d дней %H:%M')
+
+        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        msg2 = '\n\n'.join(msg2_block_list)
+        msg3 = config['msg']['total_early'] + ' ' + total_early
+        msg = msg1 + '\n\n' + msg2 + '\n' + config['msg']['lines'] + '\n' + msg3
+    else:
+        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        msg2 = config['msg']['no_early_leaves']
+        msg = msg1 + '\n\n' + msg2
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
 
 
 async def missed_days_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -682,6 +766,8 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
     :return:
     """
     print('4')
+
+
 
 
 async def presence_time_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -801,7 +887,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                             mesg4 = config['msg']['reason']
 
                         if in_out_time:
-                            # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
+                            # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел ра:ньше чем 3:40" или "Ушел в: Нету данных"
                             # timedelta: чтобы определить суммарное время
                             out_check = early_leave_check(in_out_time[1])
                             # Если есть время ухода и раннего ухода
@@ -948,7 +1034,7 @@ def early_leave_check(time):
     """
     :param time:
     :return: Просто передаем ему время, а он исходя из end_hour и end_minute определит не ушел ли он раньше времени
-    Если ушел после окончания дня тогда вернет "Уход: 19:01", а если ушел раньше тогда: "Уход: 17:00:00\n Ушел раньше времени: 0:15"
+    Если ушел после окончания дня тогда вернет "Уход: 19:01", а если ушел раньше тогда: "Уход: 17:00:00 # Ушел раньше времени: 0:15"
     Еще вернет early_seconds (в виде timedelta) чтобы находить суммарное время
     Второй элемент(early_time_delta) который он вернет это timedelta, чтобы находить суммарное время раннего ухода
     """
