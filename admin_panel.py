@@ -993,6 +993,73 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
     )
 
 
+def calc_presence_time(user_id, day):
+    """
+    Возвращает сколько часов(timedelta) рабочий был на работе в указанном дне в виде сообщения и timedelta чтобы
+    :param user_id:
+    :param day:
+    :return: ("Время присутствия: 2 часа 23мин", datetime.timedelta(xxx))
+    """
+    # Получим все in/out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...] или если ничего не найдено: []
+    all_in_outs_one_day = sql_handler.get_all_in_outs_one_day(user_id, day)
+
+    # Хотя в all_in_outs_one_day всегда должен быть информация, но на всякие случаи страхуемся
+    if all_in_outs_one_day:
+
+        in_device = config['device']['in_device']
+        out_device = config['device']['out_device']
+
+        in_time = 0
+        # Тут храним время присутствия одного дня
+        day_presence_time_delta = datetime.timedelta()
+
+        # Если в all_in_outs_one_day есть 2 in и 2 out, значит составим 2 строки: "in | out\n in | out"
+        for i in all_in_outs_one_day:
+            # Если in_time пуст, значит мы ожидаем in_time.
+            # !!! Но иногда после in может быть опять in если сотрудник при выходе не использовал faceid
+            if not in_time:
+                # Если получили in_device когда in_time пуст, значит всё в порядке
+                if i[1] == in_device:
+                    in_time = i[0]
+            # Если in_time не пуст значит мы ожидаем out_time
+            # !!! Но иногда после out может быть опять out если сотрудник при входе не использовал faceid
+            else:
+                # Если получили out_device когда in_time не пуст, значит всё в порядке
+                if i[1] == out_device:
+                    # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
+                    in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute,
+                                                       seconds=in_time.second)
+                    out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
+                    presence_time_delta = out_time_delta - in_time_delta
+                    day_presence_time_delta += presence_time_delta
+
+                    # Онулируем in_time
+                    in_time = 0
+                # Если получили in_device когда in_time не пуст, значит после прихода опять идет приход и уход между
+                # ними утерен из-за того что сотрудник не использовал faceid. В таком случаи мы не добавляем время в day_presence_time
+                else:
+                    # Запишем время в in_time чтобы в следующем цыкле не запустился "if not in_time"
+                    in_time = i[0]
+
+        # Из дельта переводим на обычный время опозданий
+        day_presence_time = datetime.datetime.min + day_presence_time_delta
+
+        # Вместо "Время присутствия: 07:52" создаем "Время присутствия: 7 часов 52 минуты"
+        hour = str(day_presence_time.hour)
+        minute = str(day_presence_time.minute)
+        if hour == '0':
+            time = f"{minute} минут"
+        else:
+            time = f"{hour.lstrip('0')} часов {minute} минут"
+        # Составим сообщение: "Время присутствия: 2 часа 51 минуты"
+        mesg = config['msg']['presence_time'] + ' ' + time
+
+        return mesg, day_presence_time_delta
+    # Если вдруг что-то пошел ни так, тогда просто вернем пустую строку. Хотя так быть не должно
+    else:
+        return config['msg']['presence_time'], datetime.timedelta()
+
+
 async def all_data_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
     Запуститься если выбрал 6-пункт: Записи всех событий
@@ -1023,6 +1090,8 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
         total_late_hours = datetime.timedelta()
         # Хранит суммарное время(раньше времени)
         total_early_lived_time = datetime.timedelta()
+        # Хранит суммарное время присутствии
+        total_presence_time = datetime.timedelta()
         # Количество дней который не пришел
         missed_days = 0
 
@@ -1042,103 +1111,74 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
 
         msg2_block_list = []
         for day in chosen_days:
-            # Если при процессе сбора данных одного дня выйдет ошибка, тогда в это число напишем что пустые строки: "Приход: | Уход: "
-            if True:
-                # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
-                in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
+            # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
+            in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
 
-                # Если данное число(date) выходной, тогда напишем: "🗓 Выходные\n Время прихода | Время ухода или просто "🗓 Выходные\n Не пришел"
-                if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
-                    mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
-                            config['msg']['three_lines'] + '</b>'
-                    mesg2 = config['msg']['weekend']
+            # Получим ("Время присутствия: 2 часов 42 минуты", timedelta)
+            presence_text_timedelta = calc_presence_time(chosen_worker[0], day)
 
-                    # Если в in_out_time: False
-                    if not in_out_time:
-                        mesg3 = config['msg']['dont_came']
-                    # Если в in_out_time: (in_time, out_time)
-                    elif in_out_time[0] and in_out_time[1]:
-                        mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
-                        mesg3_2 = config['msg']['leaved'] + ' ' + in_out_time[1].strftime('%H:%M')
-                        mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
-                    # Если в in_out_time: (in_time, False)
-                    else:
-                        mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
-                        mesg3_2 = config['msg']['leaved']
-                        mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
+            # Если данное число(date) выходной, тогда напишем: "🗓 Выходные\n Время прихода | Время ухода или просто "🗓 Выходные\n Не пришел"
+            if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+                mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                        config['msg']['three_lines'] + '</b>'
+                mesg2 = config['msg']['weekend']
 
-                    # Составим сообщение
-                    msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
+                # Если в in_out_time: False
+                if not in_out_time:
+                    mesg3 = config['msg']['dont_came']
+                    mesg4 = ''
+                # Если в in_out_time: (in_time, out_time)
+                elif in_out_time[0] and in_out_time[1]:
+                    mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
+                    mesg3_2 = config['msg']['leaved'] + ' ' + in_out_time[1].strftime('%H:%M')
+                    mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
 
-                    # Добавим созданную часть сообщения в msg2_block_list
-                    msg2_block_list.append(msg2)
-
-                    # Все что внизу пропустим
-                    continue
-
-                if day in worker_report_dict:
-                    # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time)
-                    if worker_report_dict[day][4]:
-                        mesg1 = config['msg']['came'] + ' ' + str(worker_report_dict[day][4].strftime("%H:%M"))
-
-                        # Определим на сколько часов и минут он опоздал
-                        beginning_delta = datetime.timedelta(hours=int(config['time']['start_hour']),
-                                                             minutes=int(config['time']['start_minute']))
-                        came_time = worker_report_dict[day][4]
-                        came_time_delta = datetime.timedelta(hours=came_time.hour, minutes=came_time.minute,
-                                                             seconds=came_time.second)
-                        late_time_in_seconds = came_time_delta - beginning_delta
-                        late_time = (datetime.datetime.min + late_time_in_seconds).time()
-                        late_time_str = late_time.strftime("%H:%M")
-                        mesg3 = config['msg']['late_by'] + ' ' + late_time_str
-
-                        # Прибавим время опоздания в суммарную delta
-                        total_late_hours += late_time_in_seconds
-
-                        if worker_report_dict[day][3]:
-                            mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
-                        else:
-                            mesg4 = config['msg']['reason']
-
-                        if in_out_time:
-                            # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел ра:ньше чем 3:40" или "Ушел в: Нету данных"
-                            # timedelta: чтобы определить суммарное время
-                            out_check = early_leave_check(in_out_time[1])
-                            # Если есть время ухода и раннего ухода
-                            mesg2_5 = out_check[0]
-                            if '#' in mesg2_5:
-                                ms = mesg2_5.split('#')
-                                mesg2 = ms[0]
-                                mesg5 = f"\n{ms[1]}"
-                            else:
-                                mesg2 = mesg2_5
-                                mesg5 = ''
-                            # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
-                            total_early_lived_time += out_check[1]
-                        else:
-                            mesg2 = config['msg']['leaved']
-                            mesg5 = ''
-                            total_early_lived_time += datetime.timedelta(0)
-
-                        # Хранит в себе "Приход:\n Опоздал на:\n Причина:\n Ушел в:"
-                        msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4 + mesg5
-                    # Так как столбец time пуст, значит он не пришел
-                    else:
-                        mesg1 = config['msg']['did_not_come']
-
-                        if worker_report_dict[day][3]:
-                            mesg2 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
-                        else:
-                            mesg2 = config['msg']['reason']
-
-                        msg2_2 = mesg1 + '\n' + mesg2
-                        missed_days += 1
-                # Если в таблице report не найден данный день, значит он пришел во время
+                    # Получим "Время присутствия: 2 часов 42 минуты". Но timedelta не добавим в total_presence_time так как сегодня выходной
+                    mesg4 = '\n' + presence_text_timedelta[0]
+                # Если в in_out_time: (in_time, False)
                 else:
-                    if in_out_time:
-                        mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
+                    mesg3_1 = config['msg']['came'] + ' ' + in_out_time[0].strftime('%H:%M')
+                    mesg3_2 = config['msg']['leaved']
+                    mesg3 = mesg3_1 + '  <b>|</b>  ' + mesg3_2
 
-                        # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
+                    # Получим "Время присутствия: 2 часов 42 минуты". Но timedelta не добавим в total_presence_time так как сегодня выходной
+                    mesg4 = '\n' + presence_text_timedelta[0]
+
+                # Составим сообщение
+                msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3 + mesg4
+
+                # Добавим созданную часть сообщения в msg2_block_list
+                msg2_block_list.append(msg2)
+
+                # Все что внизу пропустим
+                continue
+
+            if day in worker_report_dict:
+                # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time)
+                if worker_report_dict[day][4]:
+                    mesg1 = config['msg']['came'] + ' ' + str(worker_report_dict[day][4].strftime("%H:%M"))
+
+                    # Определим на сколько часов и минут он опоздал
+                    beginning_delta = datetime.timedelta(hours=int(config['time']['start_hour']),
+                                                         minutes=int(config['time']['start_minute']))
+                    came_time = worker_report_dict[day][4]
+                    came_time_delta = datetime.timedelta(hours=came_time.hour, minutes=came_time.minute,
+                                                             seconds=came_time.second)
+                    late_time_in_seconds = came_time_delta - beginning_delta
+                    late_time = (datetime.datetime.min + late_time_in_seconds).time()
+                    late_time_str = late_time.strftime("%H:%M")
+                    mesg3 = config['msg']['late_by'] + ' ' + late_time_str
+
+                    # Прибавим время опоздания в суммарную delta
+                    total_late_hours += late_time_in_seconds
+
+                    if worker_report_dict[day][3]:
+                        mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                    else:
+                        mesg4 = config['msg']['reason']
+
+                    if in_out_time:
+                        # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел ра:ньше чем 3:40" или "Ушел в: Нету данных"
                         # timedelta: чтобы определить суммарное время
                         out_check = early_leave_check(in_out_time[1])
                         # Если есть время ухода и раннего ухода
@@ -1146,28 +1186,65 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                         if '#' in mesg2_5:
                             ms = mesg2_5.split('#')
                             mesg2 = ms[0]
-                            mesg3 = f"\n{ms[1]}"
+                            mesg5 = f"\n{ms[1]}"
                         else:
                             mesg2 = mesg2_5
-                            mesg3 = ''
+                            mesg5 = ''
                         # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
                         total_early_lived_time += out_check[1]
                     else:
-                        mesg1 = config['msg']['came']
-
                         mesg2 = config['msg']['leaved']
-                        mesg3 = ''
+                        mesg5 = ''
                         total_early_lived_time += datetime.timedelta(0)
 
-                    # Хранит в себе "Приход:\n Ушел в: "
-                    msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + mesg3
+                    # Хранит в себе "Приход:\n Опоздал на:\n Причина:\n Ушел в:"
+                    msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4 + mesg5
+                # Так как столбец time пуст, значит он не пришел
+                else:
+                    mesg1 = config['msg']['did_not_come']
 
-                msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
-                         config['msg']['three_lines'] + '</b>'
-                msg2 = msg2_1 + '\n' + msg2_2
+                    if worker_report_dict[day][3]:
+                        mesg2 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                    else:
+                        mesg2 = config['msg']['reason']
 
-                # Добавим созданную часть сообщения в msg2_block_list
-                msg2_block_list.append(msg2)
+                    msg2_2 = mesg1 + '\n' + mesg2
+                    missed_days += 1
+            # Если в таблице report не найден данный день, значит он пришел во время
+            else:
+                if in_out_time:
+                    mesg1 = config['msg']['came'] + ' ' + in_out_time[0].strftime("%H:%M")
+
+                    # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел раньше чем: 3:40" или "Ушел в: Нету данных"
+                    # timedelta: чтобы определить суммарное время
+                    out_check = early_leave_check(in_out_time[1])
+                    # Если есть время ухода и раннего ухода
+                    mesg2_5 = out_check[0]
+                    if '#' in mesg2_5:
+                        ms = mesg2_5.split('#')
+                        mesg2 = ms[0]
+                        mesg3 = f"\n{ms[1]}"
+                    else:
+                        mesg2 = mesg2_5
+                        mesg3 = ''
+                    # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
+                    total_early_lived_time += out_check[1]
+                else:
+                    mesg1 = config['msg']['came']
+
+                    mesg2 = config['msg']['leaved']
+                    mesg3 = ''
+                    total_early_lived_time += datetime.timedelta(0)
+
+                # Хранит в себе "Приход:\n Ушел в: "
+                msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + mesg3
+
+            msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                     config['msg']['three_lines'] + '</b>'
+            msg2 = msg2_1 + '\n' + msg2_2
+
+            # Добавим созданную часть сообщения в msg2_block_list
+            msg2_block_list.append(msg2)
 
         # Из дельта переводим на обычный время опозданий
         total_late_time = datetime.datetime.min + total_late_hours
