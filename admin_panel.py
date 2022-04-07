@@ -601,8 +601,15 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
                                                      seconds=came_time.second)
                 late_time_in_seconds = came_time_delta - beginning_delta
                 late_time = (datetime.datetime.min + late_time_in_seconds).time()
-                late_time_str = late_time.strftime("%H:%M")
-                mesg3 = config['msg']['late_by'] + ' ' + late_time_str
+
+                # Вместо "Опоздал на: 07:52" создаем "Опоздал на: 7 часов 52 минуты"
+                hour = str(late_time.hour)
+                minute = str(late_time.minute)
+                if hour == '0':
+                    time = f"{minute} мин."
+                else:
+                    time = f"{hour.lstrip('0')} час. {minute} мин."
+                mesg3 = config['msg']['late_by'] + ' ' + time
 
                 # Прибавим время опоздания в суммарную delta
                 total_late_hours += late_time_in_seconds
@@ -645,10 +652,21 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
         # Из дельта переводим на обычный время опозданий
         total_late_time = datetime.datetime.min + total_late_hours
         if total_late_time.day == 1:
-            total_late = total_late_time.strftime('%H:%M')
+            hour = str(total_late_time.hour)
+            minute = str(total_late_time.minute)
+            if hour == '0':
+                total_late = f"{minute} мин."
+            else:
+                total_late = f"{hour.lstrip('0')} час. {minute} мин."
         else:
             day = int(total_late_time.strftime('%d')) - 1
-            total_late = total_late_time.strftime(f'{str(day)} дней %H:%M')
+            hour = str(total_late_time.hour)
+            minute = str(total_late_time.minute)
+            if hour == '0':
+                total_late = f"{str(day)} дней {minute} мин."
+            else:
+                total_late = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
             total_late = total_late.lstrip('0')
 
         msg1 = config['msg']['you_chose'] + chosen_worker[1]
@@ -740,10 +758,21 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
         # Из дельта переводим на обычный время раннего ухода
         total_early_time = datetime.datetime.min + total_early_lived_time
         if total_early_time.day == 1:
-            total_early = total_early_time.strftime('%H:%M')
+            hour = str(total_early_time.hour)
+            minute = str(total_early_time.minute)
+            if hour == '0':
+                total_early = f"{minute} мин."
+            else:
+                total_early = f"{hour.lstrip('0')} час. {minute} мин."
         else:
             day = int(total_early_time.strftime('%d')) - 1
-            total_early = total_early_time.strftime(f'{str(day)} дней %H:%M')
+            hour = str(total_early_time.hour)
+            minute = str(total_early_time.minute)
+            if hour == '0':
+                total_early = f"{str(day)} дней {minute} мин."
+            else:
+                total_early = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
             total_early = total_early.lstrip('0')
 
         msg1 = config['msg']['you_chose'] + chosen_worker[1]
@@ -961,9 +990,9 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
             hour = str(day_presence_time.hour)
             minute = str(day_presence_time.minute)
             if hour == '0':
-                time = f"{minute} минут"
+                time = f"{minute} мин."
             else:
-                time = f"{hour.lstrip('0')} часов {minute} минут"
+                time = f"{hour.lstrip('0')} час. {minute} мин."
             mesg3 = config['msg']['presence_time'] + ' ' + time
 
 
@@ -980,13 +1009,24 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
 
             msg2_block_list.append(msg2)
 
-    # Из дельта переводим на обычный время общего присутствия
+    # Из дельта переводим на обычный время присутствия
     presence_time = datetime.datetime.min + total_presence_time
     if presence_time.day == 1:
-        total_presence = presence_time.strftime('%H:%M')
+        hour = str(presence_time.hour)
+        minute = str(presence_time.minute)
+        if hour == '0':
+            total_presence = f"{minute} мин."
+        else:
+            total_presence = f"{hour.lstrip('0')} час. {minute} мин."
     else:
         day = int(presence_time.strftime('%d')) - 1
-        total_presence = presence_time.strftime(f'{str(day)} дней %H:%M')
+        hour = str(presence_time.hour)
+        minute = str(presence_time.minute)
+        if hour == '0':
+            total_presence = f"{str(day)} дней {minute} мин."
+        else:
+            total_presence = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
         total_presence = total_presence.lstrip('0')
 
     msg1 = config['msg']['you_chose'] + chosen_worker[1]
@@ -1060,10 +1100,10 @@ def calc_presence_time(user_id, day):
         hour = str(day_presence_time.hour)
         minute = str(day_presence_time.minute)
         if hour == '0':
-            time = f"{minute} минут"
+            time = f"{minute} мин."
         else:
             time = f"{hour.lstrip('0')} час. {minute} мин."
-        # Составим сообщение: "Время присутствия: 2 часа 51 минуты"
+        # Составим сообщение: "Время присутствия: 2 час. 51 мин."
         mesg = config['msg']['presence_time'] + ' ' + time
 
         return mesg, day_presence_time_delta
@@ -1190,8 +1230,16 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                                                             seconds=came_time.second)
                 late_time_in_seconds = came_time_delta - beginning_delta
                 late_time = (datetime.datetime.min + late_time_in_seconds).time()
-                late_time_str = late_time.strftime("%H:%M")
-                mesg3 = config['msg']['late_by'] + ' ' + late_time_str
+
+                # Вместо "Опоздал на: 07:52" создаем "Опоздал на: 7 часов 52 минуты"
+                hour = str(late_time.hour)
+                minute = str(late_time.minute)
+                if hour == '0':
+                    time = f"{minute} мин."
+                else:
+                    time = f"{hour.lstrip('0')} час. {minute} мин."
+                # Составим сообщение: "Опоздал на: 7 часов 52 минуты"
+                mesg3 = config['msg']['late_by'] + ' ' + time
 
                 # Прибавим время опоздания в суммарную delta
                 total_late_hours += late_time_in_seconds
@@ -1261,28 +1309,61 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
         # Из дельта переводим на обычный время опозданий
         total_late_time = datetime.datetime.min + total_late_hours
         if total_late_time.day == 1:
-            total_late = total_late_time.strftime('%H:%M')
+            hour = str(total_late_time.hour)
+            minute = str(total_late_time.minute)
+            if hour == '0':
+                total_late = f"{minute} мин."
+            else:
+                total_late = f"{hour.lstrip('0')} час. {minute} мин."
         else:
             day = int(total_late_time.strftime('%d')) - 1
-            total_late = total_late_time.strftime(f'{str(day)} дней %H:%M')
+            hour = str(total_late_time.hour)
+            minute = str(total_late_time.minute)
+            if hour == '0':
+                total_late = f"{str(day)} дней {minute} мин."
+            else:
+                total_late = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
             total_late = total_late.lstrip('0')
 
         # Из дельта переводим на обычный время раннего ухода
         total_early_time = datetime.datetime.min + total_early_lived_time
         if total_early_time.day == 1:
-            total_early = total_early_time.strftime('%H:%M')
+            hour = str(total_early_time.hour)
+            minute = str(total_early_time.minute)
+            if hour == '0':
+                total_early = f"{minute} мин."
+            else:
+                total_early = f"{hour.lstrip('0')} час. {minute} мин."
         else:
             day = int(total_early_time.strftime('%d')) - 1
-            total_early = total_early_time.strftime(f'{str(day)} дней %H:%M')
+            hour = str(total_early_time.hour)
+            minute = str(total_early_time.minute)
+            if hour == '0':
+                total_early = f"{str(day)} дней {minute} мин."
+            else:
+                total_early = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
             total_early = total_early.lstrip('0')
 
-        # Из дельта переводим на обычный время общего присутствия
+        # Из дельта переводим на обычный время присутствия
         presence_time = datetime.datetime.min + total_presence_time
         if presence_time.day == 1:
-            total_presence = presence_time.strftime('%H:%M')
+            hour = str(presence_time.hour)
+            minute = str(presence_time.minute)
+            if hour == '0':
+                total_presence = f"{minute} мин."
+            else:
+                total_presence = f"{hour.lstrip('0')} час. {minute} мин."
         else:
             day = int(presence_time.strftime('%d')) - 1
-            total_presence = presence_time.strftime(f'{str(day)} дней %H:%M')
+            hour = str(presence_time.hour)
+            minute = str(presence_time.minute)
+            if hour == '0':
+                total_presence = f"{str(day)} дней {minute} мин."
+            else:
+                total_presence = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
+
             total_presence = total_presence.lstrip('0')
 
         msg3_1 = config['msg']['total_late'] + ' ' + total_late
@@ -1376,10 +1457,17 @@ def early_leave_check(time):
     if end_time_delta > leaved_time_delta:
         early_seconds = end_time_delta - leaved_time_delta
         early_time_hour = (datetime.datetime.min + early_seconds).time()
-        early_time = early_time_hour.strftime("%H:%M")
+
+        # Вместо "Ранний уход: 07:52" создаем "Ранний уход: 7 часов 52 минуты"
+        hour = str(early_time_hour.hour)
+        minute = str(early_time_hour.minute)
+        if hour == '0':
+            early_leave_time = f"{minute} мин."
+        else:
+            early_leave_time = f"{hour.lstrip('0')} час. {minute} мин."
 
         msg1 = config['msg']['leaved'] + ' ' + time.strftime("%H:%M")
-        msg2 = config['msg']['early_leaved'] + ' ' + early_time
+        msg2 = config['msg']['early_leaved'] + ' ' + early_leave_time
         msg = msg1 + '#' + msg2
 
         early_time_delta = early_seconds
