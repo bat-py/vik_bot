@@ -954,8 +954,15 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
 
             # Из дельта переводим на обычный время опозданий
             day_presence_time = datetime.datetime.min + day_presence_time_delta
-            # Создаем часть сообщения: "Время присутствия: 07:52"
-            mesg3 = config['msg']['presence_time'] + ' ' + day_presence_time.strftime('%H часов %M минут')
+
+            # Вместо "Время присутствия: 07:52" создаем "Время присутствия: 7 часов 52 минуты"
+            hour = str(day_presence_time.hour)
+            minute = str(day_presence_time.minute)
+            if hour == '0':
+                time = f"{minute} минут"
+            else:
+                time = f"{hour.lstrip('0')} часов {minute} минут"
+            mesg3 = config['msg']['presence_time'] + ' ' + time
 
             # Соберем все части сообщения и добавим в msg2_block_list
             msg2 = mesg1 + '\n' + mesg2 + mesg3
@@ -966,7 +973,8 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
     if presence_time.day == 1:
         total_presence = presence_time.strftime('%H:%M')
     else:
-        total_presence = presence_time.strftime('%d дней %H:%M')
+        day = int(presence_time.strftime('%d')) - 1
+        total_presence = presence_time.strftime(f'{str(day)} дней %H:%M')
         total_presence = total_presence.lstrip('0')
 
     msg1 = config['msg']['you_chose'] + chosen_worker[1]
