@@ -493,6 +493,30 @@ def get_user_in_out_history(user_id, date):
         return False
 
 
+def get_all_in_outs_one_day(user_id, date):
+    """
+    Возвращает все in out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...]. Если ничего не найдено, тогда: []
+    :param user_id:
+    :param date:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+                        SELECT time, DeviceNo FROM "ivms" 
+                        WHERE date = ? AND ID LIKE ?
+                        ORDER BY datetime;
+                        """,
+                   (date, '%0' + str(user_id))
+                   )
+
+    all_in_outs_one_day = cursor.fetchall()
+
+    return all_in_outs_one_day
+
+
+
 def test():
     connection = connection_creator()
     cursor = connection.cursor()

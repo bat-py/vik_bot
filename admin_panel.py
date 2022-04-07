@@ -765,9 +765,87 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
     :param callback_query:
     :return:
     """
-    print('4')
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
 
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.waiting_report_page_buttons.set()
 
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
+    chosen_worker = all_data['chosen_worker']
+    chosen_term = all_data['term']
+
+    # Суммарное количества дней который не пришел
+    missed_days = 0
+
+    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time), ...], где каждый элемент это отдельный день
+    worker_report_list = sql_handler.get_data_by_term(chosen_worker[0], chosen_term)
+    # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time), ...}
+    worker_report_dict = {}
+    for day in worker_report_list:
+        worker_report_dict[day[2]] = day
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    for day in chosen_days:
+        # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
+        in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
+
+        # Если в in_out_time хранится False значит в этот день он не пришел. Если день был выходным тогда день пропустим
+        if not in_out_time and str(datetime.date.isoweekday(day)) not in config['time']['day_off']:
+            missed_days += 1
+
+            # Хранит: (id, user_id, date, comment, time)
+            report = worker_report_dict.get(day)
+
+            # Если report данного дня найден и пользователь оставил комментарию
+            if report and report[3]:
+                mesg3 = config['msg']['reason'] + report[3]
+            # Если были проблемы с базой и report выбранного дня не найден или пользователь не оставил комментарию
+            else:
+                mesg3 = config['msg']['reason']
+
+            # Хранит: "--- 29.03.2022 ---"
+            mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                    config['msg']['three_lines'] + '</b>'
+            mesg2 = config['msg']['did_not_come']
+
+            #msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
+            msg2 = mesg1 + '\n' + mesg3
+            msg2_block_list.append(msg2)
+
+    # Если хоть раз не пришел
+    if msg2_block_list:
+        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        msg2 = '\n\n'.join(msg2_block_list)
+        msg3 = config['msg']['total_missed'] + ' ' + str(missed_days)
+        msg = msg1 + '\n\n' + msg2 + '\n' + config['msg']['lines'] + '\n' + msg3
+    else:
+        msg1 = config['msg']['you_chose'] + chosen_worker[1]
+        msg2 = config['msg']['no_missed_days']
+        msg = msg1 + '\n\n' + msg2
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
 
 
 async def presence_time_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -777,6 +855,134 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
     :param callback_query:
     :return:
     """
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
+    chosen_worker = all_data['chosen_worker']
+    chosen_term = all_data['term']
+
+    # Хранит суммарное время присутствии
+    total_presence_time = datetime.timedelta()
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    for day in chosen_days:
+        # Получим все in/out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...] или если ничего не найдено: []
+        all_in_outs_one_day = sql_handler.get_all_in_outs_one_day(chosen_worker[0], day)
+
+        mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                config['msg']['three_lines'] + '</b>'
+
+        # Если нет записей, значит он вообще не пришел
+        if not all_in_outs_one_day:
+            # Если это выходной день тогда напишем: "Выходные\n Не пришел"
+            if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+                mesg2 = config['msg']['weekend'] + '\n' + config['msg']['dont_came']
+            # Если не пришел в рабочий день
+            else:
+                mesg2 = config['msg']['did_not_come']
+
+            # Добавим составленную часть сообщения в msg2_block_list
+            msg2 = mesg1 + '\n' + mesg2
+            msg2_block_list.append(msg2)
+        else:
+            in_device = config['device']['in_device']
+            out_device = config['device']['out_device']
+
+            in_time = 0
+            # Тут храним время присутствия одного дня
+            day_presence_time_delta = datetime.timedelta()
+            mesg2 = str()
+            # Если в all_in_outs_one_day есть 2 in и 2 out, значит составим 2 строки: "in | out\n in | out"
+            for i in all_in_outs_one_day:
+                # Если in_time пуст, значит мы ожидаем in_time.
+                # !!! Но иногда после in может быть опять in если сотрудник при выходе не использовал faceid
+                if not in_time:
+                    # Если получили in_device когда in_time пуст, значит всё в порядке
+                    if i[1] == in_device:
+                        in_time = i[0]
+                        #mesg2 += config['msg']['came'] + ' ' + i[0].strftime('%H:%M')
+                    # Если in_time пуст но получили out_device, значит после уход опять получили уход. Приход между ними
+                    # не было из-за того что рабочей не использовал faceid. В таком случае бот не будет рассчитывать это
+                    # время и сотрудник потеряет время присутствии
+                    else:
+                        mesg2 += f"{config['msg']['came']}              |  {config['msg']['leaved']} {i[0].strftime('%H:%M')}\n"
+                # Если in_time не пуст значит мы ожидаем out_time
+                # !!! Но иногда после out может быть опять out если сотрудник при входе не использовал faceid
+                else:
+                    # Если получили out_device когда in_time не пуст, значит всё в порядке
+                    if i[1] == out_device:
+                        # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
+                        in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute, seconds=in_time.second)
+                        out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
+                        presence_time_delta = out_time_delta - in_time_delta
+                        day_presence_time_delta += presence_time_delta
+
+                        # Добавим строку "Приход: ... | Уход: ..."
+                        mesg2 += f"{config['msg']['came']}  {in_time.strftime('%H:%M')}  |  {config['msg']['leaved']} {i[0].strftime('%H:%M')}\n"
+
+                        # Онулируем in_time
+                        in_time = 0
+                    # Если получили in_device когда in_time не пуст, значит после прихода опять идет приход и уход между
+                    # ними утерен из-за того что сотрудник не использовал faceid. В таком случаи мы не добавляем время в day_presence_time
+                    else:
+                        # Добавим строку: Приход: ... | Уход: "тут будет пусто"
+                        mesg2 += f"{config['msg']['came']}  {in_time.strftime('%H:%M')}  |  {config['msg']['leaved']}\n"
+
+                        # Запишем время в in_time чтобы в следующем цыкле не запустился "if not in_time"
+                        in_time = i[0]
+
+            # Время присутствия одного дня в общую время присутствия
+            total_presence_time += day_presence_time_delta
+
+            # Из дельта переводим на обычный время опозданий
+            day_presence_time = datetime.datetime.min + day_presence_time_delta
+            # Создаем часть сообщения: "Время присутствия: 07:52"
+            mesg3 = config['msg']['presence_time'] + ' ' + day_presence_time.strftime('%H часов %M минут')
+
+            # Соберем все части сообщения и добавим в msg2_block_list
+            msg2 = mesg1 + '\n' + mesg2 + mesg3
+            msg2_block_list.append(msg2)
+
+    # Из дельта переводим на обычный время общего присутствия
+    presence_time = datetime.datetime.min + total_presence_time
+    if presence_time.day == 1:
+        total_presence = presence_time.strftime('%H:%M')
+    else:
+        total_presence = presence_time.strftime('%d дней %H:%M')
+        total_presence = total_presence.lstrip('0')
+
+    msg1 = config['msg']['you_chose'] + chosen_worker[1]
+    msg2 = '\n\n'.join(msg2_block_list)
+    # Создаем часть сообщения: "Итого время присутствия: 31:24"
+    msg3 = config['msg']['total_presence_time'] + ' ' + total_presence
+
+    msg = msg1 + '\n\n' + msg2 + '\n' + config['msg']['lines'] + '\n' + msg3
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
 
 
 async def all_data_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
