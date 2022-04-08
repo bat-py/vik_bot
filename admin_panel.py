@@ -1576,12 +1576,6 @@ def register_handlers(dp: Dispatcher):
     )
 
     dp.register_message_handler(
-        main_menu,
-        lambda message: message.text == config['msg']['main_menu'],
-        state='*'
-    )
-
-    dp.register_message_handler(
         check_password,
         content_types=['text'],
         state=MyStates.waiting_for_password
@@ -1667,8 +1661,16 @@ def register_handlers(dp: Dispatcher):
         state=MyStates.waiting_for_report_type
     )
 
+    dp.register_message_handler(
+        main_menu,
+        lambda message: message.text == config['msg']['main_menu'],
+        state='*'
+    )
+
     dp.register_callback_query_handler(
         main_menu_inline_button_handler,
         lambda c: c.data == 'main_menu',
         state='*'
     )
+
+
