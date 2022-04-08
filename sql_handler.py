@@ -122,14 +122,15 @@ def get_admins_list():
     return admins_list
 
 
-def get_admins_where_notification_on():
+def get_admins_where_notification_on(type_of_notification):
     """
+    :param type_of_notification: Тут передаешь имя столбца уведомления(их 3) из таблицы admins
     :return: admins list where notification is on: [(chat_id, first_name, notification), ...]
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT * FROM "admins" WHERE notification = ?;', (1,))
+    cursor.execute('SELECT * FROM "admins" WHERE {} = 1;'.format(type_of_notification))
     admins_list = cursor.fetchall()
 
     connection.close()
@@ -153,21 +154,36 @@ def check_admin_exist(chat_id):
 
 
 def get_admin_notification_status(chat_id):
+    """
+    :param chat_id:
+    :return: Возвращает 3 статуса: (0, 1, 0)
+    """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT notification FROM "admins" WHERE chat_id = ?;', (chat_id,))
-    admin = cursor.fetchone()[0]
+    cursor.execute("""
+    SELECT late_come_notification, latecomer_came_notification, early_leave_notification
+    FROM "admins" 
+    WHERE chat_id = ?;""", (chat_id,))
+    status = cursor.fetchone()
 
     connection.close()
-    return admin
+    return status
 
 
 def update_admin_notification_status(chat_id, status):
+    """
+    :param chat_id:
+    :param status: Тут будет кортеж с 3 статусами: (0, 1, 0)
+    :return:
+    """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('UPDATE "admins" SET notification = ? WHERE chat_id = ?;', (status, chat_id))
+    cursor.execute("""
+    UPDATE "admins"
+    SET late_come_notification = ?, latecomer_came_notification = ?, early_leave_notification = ?
+    WHERE chat_id = ?;""", (*status, chat_id))
     connection.commit()
 
     connection.close()

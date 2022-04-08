@@ -65,8 +65,8 @@ async def check_users_in_logs(dp: Dispatcher):
             msg3 = config['msg']['no_latecomers']
         msg = msg1 + '\n' + msg2 + '\n' + msg3
 
-        # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список опоздавших
-        admins_list = sql_handler.get_admins_list()
+        # Получаем список [(chat_id, first_name), ...] админов где столбец late_come_notification = 1 чтобы отправить список опоздавших
+        admins_list = sql_handler.get_admins_where_notification_on('late_come_notification')
 
         # Отправляет сообщения всем админам
         for i in admins_list:
@@ -116,8 +116,8 @@ async def check_users_in_logs(dp: Dispatcher):
             msg3 = config['msg']['nobody_came']
         msg = msg1 + '\n' + msg2 + '\n' + msg3
 
-        # Получаем список [(chat_id, first_name), ...] админов чтобы отправить список тех кто пришел в выходные
-        admins_list = sql_handler.get_admins_list()
+        # Получаем список [(chat_id, first_name), ...] админов где столбец late_come_notification = 1
+        admins_list = sql_handler.get_admins_where_notification_on('late_come_notification')
         # Отправляет сообщения всем админам
         for i in admins_list:
             try:
@@ -194,7 +194,7 @@ async def check_last_2min_logs(dp: Dispatcher):
 
                     # Если это его первый раз за сегодня значит он только что пришел. Отправим админам что он пришел
                     if all_logs_count == 1:
-                        admins = sql_handler.get_admins_list()
+                        admins = sql_handler.get_admins_where_notification_on('latecomer_came_notification')
                         admins_chat_id_list = list(map(lambda i: i[0], admins))
 
                         # Получаем информацию об опоздавшем (ID, name, Who, chat_id)
@@ -302,7 +302,7 @@ async def leaved_comment_handler(message: types.Message, state: FSMContext):
 
 async def check_end_of_the_day(dp: Dispatcher):
     """
-    Функция в конце дня проверяет кто ушел до конца рабочего дня, тогда запишет в таблицу "early_leaved" и отправит админам список
+    Функция в конце дня проверяет кто ушел до конца рабочего дня и отправит админам список
     :param dp:
     :return:
     """
@@ -362,8 +362,8 @@ async def check_end_of_the_day(dp: Dispatcher):
     msg = msg1 + '\n' + msg2 + '\n' + msg3
 
     # Отправим админам кто ушел раньше
-    # Получаем список [(chat_id, first_name, notification), ...] админов где notification = 1
-    admins_list = sql_handler.get_admins_where_notification_on()
+    # Получаем список [(chat_id, first_name, notification), ...] админов где столбец early_leave_notification = 1
+    admins_list = sql_handler.get_admins_where_notification_on('early_leave_notification')
 
     # Отправим сообщение всем админам список тех кто ушел раньше и на сколько
     for admin in admins_list:
