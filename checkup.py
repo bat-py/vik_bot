@@ -210,7 +210,13 @@ async def check_last_2min_logs(dp: Dispatcher):
                                                        seconds=user[1].second)
                         late_second = now_delta - beginning_delta
                         late_time_hour = (datetime.datetime.min + late_second).time()
-                        late_time = late_time_hour.strftime("%H:%M")
+
+                        hour = str(late_time_hour.hour)
+                        minute = str(late_time_hour.minute)
+                        if hour == '0':
+                            late_time = f"{minute} мин."
+                        else:
+                            late_time = f"{hour.lstrip('0')} час. {minute} мин."
 
                         # Запишем в таблицу "report" время прихода опоздавшего если сегодня не выходной
                         if str(day_of_week) not in config['time']['day_off']:
@@ -327,7 +333,13 @@ async def check_end_of_the_day(dp: Dispatcher):
         )
         early_seconds = end_time_delta - leaved_time_delta
         early_time_hour = (datetime.datetime.min + early_seconds).time()
-        early_time = early_time_hour.strftime("%H:%M")
+
+        hour = str(early_time_hour.hour)
+        minute = str(early_time_hour.minute)
+        if hour == '0':
+            early_time = f"{minute} мин."
+        else:
+            early_time = f"{hour.lstrip('0')} час. {minute} мин."
 
         # Получаем информацию рабочего (id, name, who, chat_id)
         user_data = sql_handler.get_user_info_by_id(user_id)
