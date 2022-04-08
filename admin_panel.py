@@ -266,14 +266,16 @@ async def missing_list_handler(message: types.Message):
         msg = f"{n + 1}. {user[1]}"
         latecommer_users_names_list.append(msg)
 
+    lines = config['msg']['three_lines']
+    msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
     # Если есть отсутствующие
     if latecommer_users_names_list:
-        msg1 = config['msg']['missing_full']
-        msg2 = '\n'.join(latecommer_users_names_list)
-        msg = msg1 + '\n' + msg2
+        msg2 = config['msg']['missing_full']
+        msg3 = '\n'.join(latecommer_users_names_list)
+        msg = msg1 + '\n' + msg2 + '\n' + msg3
     # Если все на работе и отсутствующих нет
     else:
-        msg = config['msg']['missing_full'] + '\n' + config['msg']['no_missing']
+        msg = msg1 + '\n' + config['msg']['missing_full'] + '\n' + config['msg']['no_missing']
 
     # Удаляем сообщение "missing"
     try:
