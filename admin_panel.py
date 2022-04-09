@@ -163,6 +163,11 @@ def on_off_menu_handler_buttons_creator(admin_status):
 
 
 async def on_off_menu_handler(message: types.Message):
+    """
+    Запустится после того как пользователь нажал на "Вкл/Выкл уведомление"
+    :param message:
+    :return:
+    """
     check_admin = sql_handler.check_admin_exist(message.chat.id)
 
     # Если он зарегистрирован и есть в базе
@@ -258,24 +263,81 @@ async def missing_list_handler(message: types.Message):
         if i not in ids_who_came:
             latecommers.append(i)
 
-    # Получаем список опоздавших: [(ID, Name, chat_id), ...]
-    latecommer_users = sql_handler.get_users_name_chat_id(latecommers)
-
-    latecommer_users_names_list = []
-    for n, user in enumerate(latecommer_users):
-        msg = f"{n + 1}. {user[1]}"
-        latecommer_users_names_list.append(msg)
-
+    # Создаем 1 строку: --- 21.05.2022 ---
     lines = config['msg']['three_lines']
     msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+
     # Если есть отсутствующие
-    if latecommer_users_names_list:
+    if latecommers:
+        # Получаем список опоздавших: [(ID, Name, chat_id), ...]
+        latecommer_users = sql_handler.get_users_name_chat_id(latecommers)
+
+        latecommer_users_names_list = []
+        for n, user in enumerate(latecommer_users):
+            msg = f"{n + 1}. {user[1]}"
+            latecommer_users_names_list.append(msg)
+
         msg2 = config['msg']['missing_full']
         msg3 = '\n'.join(latecommer_users_names_list)
         msg = msg1 + '\n' + msg2 + '\n' + msg3
     # Если все на работе и отсутствующих нет
     else:
         msg = msg1 + '\n' + config['msg']['missing_full'] + '\n' + config['msg']['no_missing']
+
+    # Удаляем сообщение "missing"
+    try:
+        await message.bot.delete_message(message.chat.id, message.message_id)
+    except:
+        pass
+
+    await message.bot.send_message(
+        message.chat.id,
+        msg
+    )
+
+
+async def present_list_handler(message: types.Message, state: FSMContext):
+    """
+    Запустится если пользователь нажал на "Список присутствующих" и он вернет список тех кто сейчас на работе
+    :param state:
+    :param message:
+    :return:
+    """
+
+    # Получаем ID тех кто пришел
+    ids_who_came = sql_handler.get_todays_logins()
+    ids_who_came = [int(i[0]) for i in ids_who_came]
+    # Список всех пользователей (только те где Who == 'Control')
+    all_members_id = sql_handler.get_all_users_id(control=True)
+    all_members_id = [i[0] for i in all_members_id]
+
+    # Список присутствующих
+    present_list = []
+    for i in all_members_id:
+        if i in ids_who_came:
+            present_list.append(i)
+
+    # Создаем 1 строку: --- 21.05.2022 ---
+    lines = config['msg']['three_lines']
+    msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+
+    # Если есть присутствующие
+    if present_list:
+        # Получаем список присутствующих: [(ID, Name, chat_id), ...]
+        present_users = sql_handler.get_users_name_chat_id(present_list)
+
+        present_users_names_list = []
+        for n, user in enumerate(present_users):
+            msg = f"{n + 1}. {user[1]}"
+            present_users_names_list.append(msg)
+
+
+        msg2 = config['msg']['present_full']
+        msg3 = '\n'.join(present_users_names_list)
+        msg = msg1 + '\n' + msg2 + '\n' + msg3
+    # Если все не пришли и присутствующих нет
+    else:
+        msg = msg1 + '\n' + config['msg']['present_full'] + '\n' + config['msg']['no_present']
 
     # Удаляем сообщение "missing"
     try:
@@ -1593,12 +1655,16 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data.startswith('notification_button')
     )
 
-
-
     dp.register_message_handler(
         missing_list_handler,
         lambda message: message.text == config['msg']['missing']
     )
+
+    dp.register_message_handler(
+        present_list_handler,
+        lambda message: message.text == config['msg']['present']
+    )
+
 
     dp.register_message_handler(
         report_handler,

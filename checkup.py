@@ -18,7 +18,7 @@ class MyStates(StatesGroup):
     waiting_for_comment = State()
 
 
-async def check_users_in_logs(dp: Dispatcher):
+async def check_userws_in_logs(dp: Dispatcher):
     # today = datetime.datetime.today()
     # Получит число от 1-7. Если 1 значит сегодня понидельник, а если 7 значит воскресенье
     # day_of_week = datetime.datetime.isoweekday(today)
@@ -385,9 +385,9 @@ async def schedule_jobs(dp):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute + 10, args=(dp,))
-    scheduler.add_job(check_last_2min_logs, 'interval', seconds=60, args=(dp,))
-    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
+    #scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute + 10, args=(dp,))
+    #scheduler.add_job(check_last_2min_logs, 'interval', seconds=60, args=(dp,))
+    #scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
 
 
 def register_handlers(dp: Dispatcher):
