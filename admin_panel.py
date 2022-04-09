@@ -115,7 +115,11 @@ async def main_menu(message_or_callback_query, state: FSMContext):
     await state.finish()
 
     # Создаем кнопки
-    buttons_name = [[config['msg']['report']], [config['msg']['missing']], [config['msg']['on_off']]]
+    buttons_name = [
+        [config['msg']['report']],
+        [config['msg']['on_off']],
+        [config['msg']['missing'], config['msg']['present']]
+    ]
 
     buttons = button_creators.reply_keyboard_creator(buttons_name)
 
