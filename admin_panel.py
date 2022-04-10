@@ -116,10 +116,9 @@ async def main_menu(message_or_callback_query, state: FSMContext):
 
     # Создаем кнопки
     buttons_name = [
-        [config['msg']['report']],
         [config['msg']['present'], config['msg']['missing']],
-        [config['msg']['on_off']]
-
+        [config['msg']['one_worker_report'], config['msg']['all_workers_report']],
+        [config['msg']['excel_report'], config['msg']['on_off']]
     ]
 
     buttons = button_creators.reply_keyboard_creator(buttons_name)
@@ -355,7 +354,7 @@ async def present_list_handler(message: types.Message, state: FSMContext):
     )
 
 
-async def report_handler(message: types.Message, state: FSMContext):
+async def one_worker_report_handler(message: types.Message, state: FSMContext):
     """
     Запуститься после того как админ нажал на кнопку "Отчет". Функция отправит список всех рабочих чтобы он выбрал
     и кнопку "главное меню"
@@ -475,7 +474,6 @@ async def choosen_worker_handler(message: types.Message, state: FSMContext):
         await message.answer(msg)  # , reply_markup=button)
 
 
-### Отправит 6 пунктов
 async def chosen_term_handler(message_or_callback_query, state: FSMContext):
     """
     Запуститься после того как пользователь выбрал сколько дней отчета надо показать(1-31). Потом вернет 6 пунктов
@@ -562,7 +560,7 @@ async def chosen_term_handler(message_or_callback_query, state: FSMContext):
                 pass
 
             await MyStates.waiting_for_worker_number.set()
-            await report_handler(message_or_callback_query, state=state)
+            await one_worker_report_handler(message_or_callback_query, state=state)
 
         # Если отправил неправильное число или текст
         else:
@@ -1669,10 +1667,9 @@ def register_handlers(dp: Dispatcher):
         lambda message: message.text == config['msg']['present']
     )
 
-
     dp.register_message_handler(
-        report_handler,
-        lambda message: message.text == config['msg']['report']
+        one_worker_report_handler,
+        lambda message: message.text == config['msg']['one_worker_report']
     )
 
     dp.register_message_handler(
@@ -1744,5 +1741,3 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data == 'main_menu',
         state='*'
     )
-
-
