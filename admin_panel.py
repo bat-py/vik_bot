@@ -117,8 +117,7 @@ async def main_menu(message_or_callback_query, state: FSMContext):
     # Создаем кнопки
     buttons_name = [
         [config['msg']['present'], config['msg']['missing']],
-        [config['msg']['one_worker_report'], config['msg']['all_workers_report']],
-        [config['msg']['excel_report'], config['msg']['on_off']]
+        [config['msg']['report'], config['msg']['on_off']]
     ]
 
     buttons = button_creators.reply_keyboard_creator(buttons_name)
@@ -128,6 +127,44 @@ async def main_menu(message_or_callback_query, state: FSMContext):
 
     await message_or_callback_query.bot.send_message(
         message_or_callback_query.from_user.id,
+        msg,
+        reply_markup=buttons
+    )
+
+
+async def report_menu(message: types.Message, state: FSMContext):
+    """
+    Запуститься после того как в главном меню нажал на кнопку "Отчет"
+    :param message:
+    :param state:
+    :return: Вернет inline кнопки с типами отчетов: 📋Отчет одного сотрудника, 🗂Отчет всех сотрудников, 📊Отчет в excel
+    """
+    # Админ может вернуться со следующего меню, поэтому выключим state
+    await state.finish()
+
+    # Если он пришел с глав. меню тогда удалим последнее 1 сообщения, а если вернулся со следующего меня тогда удалим 2 сообщения
+    if message.text == config['msg']['report']:
+        n = 1
+    else:
+        n = 2
+    try:
+        for i in range(n):
+            await message.bot.delete_message(message.chat.id, message.message_id - i)
+    except:
+        pass
+
+    # создаем inline кнопки:
+    buttons = button_creators.inline_keyboard_creator([
+        [[config['msg']['one_worker_report'], 'one_worker_report']],
+        [[config['msg']['all_workers_report'], 'all_workers_report']],
+        [[config['msg']['excel_report'], 'excel_report']],
+        [[config['msg']['main_menu'], 'main_menu']]
+        ]
+    )
+
+    msg = config['msg']['report_type']
+
+    await message.answer(
         msg,
         reply_markup=buttons
     )
@@ -354,16 +391,25 @@ async def present_list_handler(message: types.Message, state: FSMContext):
     )
 
 
-async def one_worker_report_handler(message: types.Message, state: FSMContext):
+async def one_worker_report_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Запуститься после того как админ нажал на кнопку "Отчет". Функция отправит список всех рабочих чтобы он выбрал
-    и кнопку "главное меню"
+    Запуститься после того как админ выбрал "📋 Отчет одного сотрудника". Функция отправит список всех рабочих чтобы он
+    выбрал и кнопку "Назад"
     :param state:
     :param message:
     :return:
     """
     # Получаем список всех рабочих(who=control): [(ID, name, Who, chat_id), ...]
     users_list = sql_handler.get_all_workers()
+
+    # Удаляем последнее сообщение ( с 3 inline кнопками)
+    try:
+        await callback_query.bot.delete_message(
+            callback_query.from_user.id,
+            callback_query.message.message_id
+        )
+    except:
+        pass
 
     # Составим из users_list библиотеку {1: [ID, name, Who, chat_id], 2:...}
     users_dict = {}
@@ -379,12 +425,16 @@ async def one_worker_report_handler(message: types.Message, state: FSMContext):
     msg = msg1 + '\n' + msg2
 
     # Создадим кнопку "Главное меню"
-    button = button_creators.reply_keyboard_creator([[config['msg']['main_menu']]])
+    button = button_creators.reply_keyboard_creator([[config['msg']['back']]])
 
     # Устанавливаем статус
     await MyStates.waiting_for_worker_number.set()
 
-    await message.answer(msg, reply_markup=button)
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
 
 
 async def choosen_worker_handler(message: types.Message, state: FSMContext):
@@ -1668,8 +1718,19 @@ def register_handlers(dp: Dispatcher):
     )
 
     dp.register_message_handler(
+        report_menu,
+        lambda message: message.text == config['msg']['report']
+    )
+
+    dp.register_callback_query_handler(
         one_worker_report_handler,
-        lambda message: message.text == config['msg']['one_worker_report']
+        lambda c: c.data == 'one_worker_report'
+    )
+
+    dp.register_message_handler(
+        report_menu,
+        lambda message: message.text == config['msg']['back'],
+        state=MyStates.waiting_for_worker_number
     )
 
     dp.register_message_handler(
