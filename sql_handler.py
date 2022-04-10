@@ -91,7 +91,11 @@ def get_users_name_chat_id(id_list):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT ID, Name, chat_id FROM "user" WHERE ID IN {}'.format(tuple(id_list)))
+    if len(id_list) == 1:
+        cursor.execute('SELECT ID, Name, chat_id FROM "user" WHERE ID = ?', (id_list[0], ))
+    else:
+        cursor.execute('SELECT ID, Name, chat_id FROM "user" WHERE ID IN {}'.format(tuple(id_list)))
+
     users_list = cursor.fetchall()
 
     connection.close()

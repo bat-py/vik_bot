@@ -336,7 +336,6 @@ async def present_list_handler(message: types.Message, state: FSMContext):
             msg = f"{n + 1}. {user[1]}"
             present_users_names_list.append(msg)
 
-
         msg2 = config['msg']['present_full']
         msg3 = '\n'.join(present_users_names_list)
         msg = msg1 + '\n' + msg2 + '\n' + msg3

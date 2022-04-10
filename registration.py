@@ -15,7 +15,10 @@ class MyStates(StatesGroup):
     waiting_for_user_id_confirmation = State()
 
 
-async def registration_command_handler(message: types.Message):
+async def registration_command_handler(message: types.Message, state: FSMContext):
+    # На всякие случаи отключаем все states
+    await state.finish()
+
     msg1 = config['msg']['choose_your_name']
 
     # Creating list of members: id) firstname lastname
@@ -57,6 +60,13 @@ async def user_id_confirmation(message: types.Message, state: FSMContext):
     elif choosen_id.isdigit():
         # Если пользователь выбрал существующий ID номер
         if int(choosen_id) in users_id_list:
+            # Удаляем список сотрудников
+            try:
+                for i in range(2):
+                    await message.bot.delete_message(message.chat.id, message.message_id - i)
+            except:
+                pass
+
             # Создаем сообщения о подтверждении и кнопки "Да" и "Нет"
             user_name = sql_handler.get_user_name(choosen_id)
             msg1 = config['msg']['confirmation']
@@ -82,6 +92,11 @@ async def user_id_confirmation(message: types.Message, state: FSMContext):
             )
     # Если отправил не целое число
     else:
+        try:
+            await message.bot.delete_message(message.chat.id, message.message_id)
+        except:
+            pass
+
         msg = config['msg']['not_integer']
         await message.bot.send_message(
             message.chat.id,
@@ -89,9 +104,14 @@ async def user_id_confirmation(message: types.Message, state: FSMContext):
         )
 
 
-#Запуститься после того как пользователь подтвердил свой выбор
 async def user_id_confirmed(message: types.Message, state: FSMContext):
-    if  message.text == 'Да':
+    """
+    Запуститься после того как пользователь подтвердил свой выбор
+    :param message:
+    :param state:
+    :return:
+    """
+    if message.text == 'Да':
         all_data = await state.get_data()
         user_id = all_data['choosen_id']
 
@@ -100,6 +120,13 @@ async def user_id_confirmed(message: types.Message, state: FSMContext):
 
         # Аннулируем state
         await state.finish()
+
+        # Удаляем 2 последные сообщени(Вопрос на подтверждение и ответ(да или нет))
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
+        except:
+            pass
 
         msg = config['msg']['your_account_registered']
 
@@ -112,7 +139,13 @@ async def user_id_confirmed(message: types.Message, state: FSMContext):
         )
 
     elif message.text == 'Нет':
-        await start_command_handler(message)
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
+        except:
+            pass
+
+        await registration_command_handler(message, state)
     else:
         pass
 
