@@ -480,7 +480,7 @@ def get_user_in_out_history(user_id, date):
                     WHERE date = ? AND ID LIKE ? AND DeviceNo = ?
                     ORDER BY datetime;
                     """,
-                   (date, '%0'+str(user_id), in_device)
+                   (date, '%000'+str(user_id), in_device)
                    )
     # Берем самый первый элемент из списка, так как нам нужен только время входа
     user_in = cursor.fetchone()
@@ -511,6 +511,35 @@ def get_user_in_out_history(user_id, date):
     else:
         connection.close()
         return False
+
+
+def get_user_in_history(user_id, date):
+    """
+    Может возвращать 2 варианта:
+    Когда есть входа: in_time
+    Когда нету входа: False
+    :param date:
+    :param user_id:
+    :return: Возвращает самый первый вход
+
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    in_device = config['device']['in_device']
+
+    cursor.execute("""
+                    SELECT time FROM "ivms" 
+                    WHERE date = ? AND ID LIKE ? AND DeviceNo = ?
+                    ORDER BY datetime;
+                    """,
+                   (date, '%000'+str(user_id), in_device)
+                   )
+    # Берем самый первый элемент из списка, так как нам нужен только время входа
+    user_in = cursor.fetchone()
+
+    connection.close()
+    return user_in
 
 
 def get_all_in_outs_one_day(user_id, date):

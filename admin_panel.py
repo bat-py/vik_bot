@@ -1,4 +1,5 @@
 import asyncio
+import collections
 import configparser
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
@@ -17,6 +18,11 @@ class MyStates(StatesGroup):
     waiting_for_term = State()
     waiting_for_report_type = State()
     waiting_report_page_buttons = State()
+
+    all_workers_waiting_for_term = State()
+    all_workers_waiting_for_report_type = State()
+    all_workers_waiting_report_page_buttons = State()
+    all_workers_waiting_report_page_buttons = State()
 
 
 async def admin_command_handler(message: types.Message, state: FSMContext):
@@ -134,7 +140,7 @@ async def main_menu(message_or_callback_query, state: FSMContext):
 
 async def report_menu(message: types.Message, state: FSMContext):
     """
-    Запуститься после того как в главном меню нажал на кнопку "Отчет"
+    Запуститься после того как в главном меню нажал на кнопку "Отчет"  или вернулся из следующего меню
     :param message:
     :param state:
     :return: Вернет inline кнопки с типами отчетов: 📋Отчет одного сотрудника, 🗂Отчет всех сотрудников, 📊Отчет в excel
@@ -439,7 +445,7 @@ async def one_worker_report_handler(callback_query: types.CallbackQuery, state: 
 
 async def choosen_worker_handler(message: types.Message, state: FSMContext):
     """
-    Запуститься после того как админ выбрал номер рабочего
+    Запуститься после того как админ выбрал номер рабочего. Продолжение one_worker_report_handler
     :param message:
     :param state:
     :return:
@@ -528,6 +534,7 @@ async def chosen_term_handler(message_or_callback_query, state: FSMContext):
     """
     Запуститься после того как пользователь выбрал сколько дней отчета надо показать(1-31). Потом вернет 6 пунктов
     Или после того как пользователь вернулся из следующего меню (из какого-то выбранного пункта отчета)
+    Продолжение one_worker_report_handler
     :param message_or_callback_query:
     :param state:
     :return:
@@ -663,7 +670,7 @@ async def chosen_term_handler(message_or_callback_query, state: FSMContext):
 
 async def come_leave_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Если выбрал 1 пункт: Приход / Уход
+    Если выбрал 1 пункт: Приход / Уход. Продолжение one_worker_report_handler
     :param state:
     :param callback_query:
     :return:
@@ -743,7 +750,7 @@ async def come_leave_report_type_handler(callback_query: types.CallbackQuery, st
 
 async def late_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Если выбрал 2 пункт: Опоздание
+    Если выбрал 2 пункт: Опоздание. Продолжение one_worker_report_handler
     :param callback_query:
     :return:
     """
@@ -888,7 +895,7 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
 
 async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Если выбрал 3 пункт: Ранний уход
+    Если выбрал 3 пункт: Ранний уход. Продолжение one_worker_report_handler
     :param callback_query:
     :return:
     """
@@ -994,7 +1001,7 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
 
 async def missed_days_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Если выбрал 4 пункт: Пропущенные дни
+    Если выбрал 4 пункт: Пропущенные дни. Продолжение one_worker_report_handler
     :param callback_query:
     :return:
     """
@@ -1083,7 +1090,7 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
 
 async def presence_time_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Если выбрал 5 пункт: Время присутствия
+    Если выбрал 5 пункт: Время присутствия. Продолжение one_worker_report_handler
     :param state:
     :param callback_query:
     :return:
@@ -1244,76 +1251,9 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
     )
 
 
-def calc_presence_time(user_id, day):
-    """
-    Возвращает сколько часов(timedelta) рабочий был на работе в указанном дне в виде сообщения и timedelta чтобы
-    :param user_id:
-    :param day:
-    :return: ("Время присутствия: 2 часа 23мин", datetime.timedelta(xxx))
-    """
-    # Получим все in/out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...] или если ничего не найдено: []
-    all_in_outs_one_day = sql_handler.get_all_in_outs_one_day(user_id, day)
-
-    # Хотя в all_in_outs_one_day всегда должен быть информация, но на всякие случаи страхуемся
-    if all_in_outs_one_day:
-
-        in_device = config['device']['in_device']
-        out_device = config['device']['out_device']
-
-        in_time = 0
-        # Тут храним время присутствия одного дня
-        day_presence_time_delta = datetime.timedelta()
-
-        # Если в all_in_outs_one_day есть 2 in и 2 out, значит составим 2 строки: "in | out\n in | out"
-        for i in all_in_outs_one_day:
-            # Если in_time пуст, значит мы ожидаем in_time.
-            # !!! Но иногда после in может быть опять in если сотрудник при выходе не использовал faceid
-            if not in_time:
-                # Если получили in_device когда in_time пуст, значит всё в порядке
-                if i[1] == in_device:
-                    in_time = i[0]
-            # Если in_time не пуст значит мы ожидаем out_time
-            # !!! Но иногда после out может быть опять out если сотрудник при входе не использовал faceid
-            else:
-                # Если получили out_device когда in_time не пуст, значит всё в порядке
-                if i[1] == out_device:
-                    # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
-                    in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute,
-                                                       seconds=in_time.second)
-                    out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
-                    presence_time_delta = out_time_delta - in_time_delta
-                    day_presence_time_delta += presence_time_delta
-
-                    # Онулируем in_time
-                    in_time = 0
-                # Если получили in_device когда in_time не пуст, значит после прихода опять идет приход и уход между
-                # ними утерен из-за того что сотрудник не использовал faceid. В таком случаи мы не добавляем время в day_presence_time
-                else:
-                    # Запишем время в in_time чтобы в следующем цыкле не запустился "if not in_time"
-                    in_time = i[0]
-
-        # Из дельта переводим на обычный время опозданий
-        day_presence_time = datetime.datetime.min + day_presence_time_delta
-
-        # Вместо "Время присутствия: 07:52" создаем "Время присутствия: 7 часов 52 минуты"
-        hour = str(day_presence_time.hour)
-        minute = str(day_presence_time.minute)
-        if hour == '0':
-            time = f"{minute} мин."
-        else:
-            time = f"{hour.lstrip('0')} час. {minute} мин."
-        # Составим сообщение: "Время присутствия: 2 час. 51 мин."
-        mesg = config['msg']['presence_time'] + ' ' + time
-
-        return mesg, day_presence_time_delta
-    # Если вдруг что-то пошел ни так, тогда просто вернем пустую строку. Хотя так быть не должно
-    else:
-        return config['msg']['presence_time'], datetime.timedelta()
-
-
 async def all_data_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Запуститься если выбрал 6-пункт: Записи всех событий
+    Запуститься если выбрал 6-пункт: Записи всех событий. Продолжение one_worker_report_handler
     :param callback_query:
     :param state:
     :return:
@@ -1584,27 +1524,6 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
         )
 
 
-async def main_menu_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
-    """
-    Если нажал на inline кнопку Главное меню
-    :param state:
-    :param callback_query:
-    :return:
-    """
-    # Удаляем 2 последние сообщения
-    try:
-        for i in range(2):
-            await callback_query.bot.delete_message(
-                callback_query.message.chat.id,
-                callback_query.message.message_id - i
-            )
-    except:
-        pass
-
-    # Вернем главное меню
-    await main_menu(callback_query, state)
-
-
 async def report_page_buttons(message: types.Message, state: FSMContext):
     """
     Эта функция нужна чтобы того как показал отчет за выбранный период мог работать кнопка Назад
@@ -1627,6 +1546,306 @@ async def report_page_buttons(message: types.Message, state: FSMContext):
         await main_menu(message, state)
 
 
+async def all_workers_report_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Запустить если выбрал "🗂 Отчет всех сотрудников".
+    :param callback_query:
+    :param state:
+    :return: Сколько дней хотите посмотреть
+    """
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.from_user.id,
+                message_id=callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Меняем статус на waiting_for_term
+    await MyStates.all_workers_waiting_for_term.set()
+
+    # Создадим кнопку "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+    # Составим сообщения: "Сколько дней хотите посмотреть (1-30 дней):"
+    msg = config['msg']['term']
+
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
+
+
+async def all_workers_chosen_term_handler(message: types.Message, state: FSMContext):
+    """
+    Запуститься после того как админ выбрал "🗂 Отчет всех сотрудников -> сколько дней отчета надо показать(1-31)"
+    Продолжение 🗂 Отчет всех сотрудников
+    :param message:
+    :param state:
+    :return: 3 пункта (Опоздание, Ранний уход, Пропущенные дни)
+    """
+    str_numbers = [str(i) for i in range(1, 31)]
+
+    # Если отправил число от 1 до 30:
+    if message.text.strip() in str_numbers:
+        # Сохраним выбранный диапазон
+        await state.update_data(term=message.text.strip())
+
+        # Меняем статус на all_workers_waiting_for_term
+        await MyStates.all_workers_waiting_for_report_type.set()
+
+        # Создаем 3 inline кнопок для выбора типа отчета и кнопки назад и главное меню
+        buttons_list = [
+            [[config['msg']['late_report_type'], 'all_workers_late_report_type']],
+            [[config['msg']['early_leaved_report_type'], 'all_workers_early_leaved_report_type']],
+            [[config['msg']['missed_days_report_type'], 'all_workers_missed_days_report_type']],
+            [[config['msg']['back'], 'back'], [config['msg']['main_menu'], 'main_menu']]
+        ]
+        inline_button = button_creators.inline_keyboard_creator(buttons_list, row_width=2)
+
+        msg = config['msg']['choose_report_type']
+
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(2):
+                await message.bot.delete_message(
+                    message.chat.id,
+                    message.message_id - i
+                )
+        except:
+            pass
+
+        # Отправим сообщение с 3 inline кнопками
+        await message.answer(msg, reply_markup=inline_button)
+
+    # Если нажал на кнопку Назад вместо количество дней, тогда вернем список отчетов (3 вида отчета)
+    elif message.text == config['msg']['back']:
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(2):
+                await message.bot.delete_message(
+                    message.chat.id,
+                    message.message_id - i
+                )
+        except:
+            pass
+
+        # Отключаем state "all_workers_waiting_for_term"
+        await state.finish()
+
+        # Вернем report_menu чтобы мог вернуть другой вид отчета
+        await report_menu(message, state)
+
+    # Если отправил неправильное число или текст
+    else:
+        # Создадим кнопку "Главное меню"
+        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
+        except:
+            pass
+
+        msg = config['msg']['wrong_term']
+        await message.answer(msg, reply_markup=button)
+
+
+async def all_workers_late_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Запустится если нажал на "🗂 Отчет всех сотрудников"  ->  "Опоздание"
+    :param callback_query:
+    :param state:
+    :return:
+    """
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.all_workers_waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном диапазоне (1-30):
+    chosen_term = all_data['term']
+
+    # Получаем список всех рабочих(who=control): [(ID, name, Who, chat_id), ...]
+    all_workers = sql_handler.get_all_workers()
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    # Каждый цыкл составит сообщение:
+    # "--- 28.03.2022 ---\n Абдувосиков Жавохир (Приход 9:10)\n Шерибаев Азизбек (Приход 10:40)\n ..."
+    for day in chosen_days:
+        msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                 config['msg']['three_lines'] + '</b>\n'
+
+        # Если данное число(date) выходной, тогда напишем: "--- 10.04.2022 ---\n 🗓 Выходные"
+        if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+            msg2_2 = config['msg']['weekend']
+            msg2_block_list.append(msg2_1 + msg2_2)
+        else:
+            # Библиотека рабочих кто опоздал в указанном дне: {time: "9:10  Абдувосиков Жавохир", ...}
+            latecomer_users_in_day = {}
+            # Каждый цыкл составит одну строку про одного опоздавшего челевека: "9:10  Абдувосиков Жавохир"
+            for worker in all_workers:
+                # Получаем время приходауказанной даты: in_time или False если не пришел
+                in_time = sql_handler.get_user_in_history(worker[0], day)
+
+                # Если in_out_time не равно False
+                if in_time:
+                    # Теперь определим опоздал ли он или нет
+                    start_hour = int(config['time']['start_hour'])
+                    start_minute = int(config['time']['start_hour']) + 10
+                    start_time = datetime.timedelta(hours=start_hour, minutes=start_minute)
+
+                    came_time = datetime.timedelta(
+                        hours=in_time[0].hour,
+                        minutes=in_time[0].minute,
+                        seconds=in_time[0].second
+                    )
+
+                    # Если время прихода больше чем время начала работы(+10мин), значит он опоздал
+                    if came_time > start_time:
+                        came_time_str = in_time[0].strftime('%H:%M')
+                        # В latecomer_users_in_day добавим: "9:10  Абдувосиков Жавохир"
+                        mesg1 = f"<b>{came_time_str}</b>  {worker[1]}"
+                        latecomer_users_in_day[in_time[0]] = mesg1
+
+            # Если в указанном дне хоть кто-то опоздал
+            if latecomer_users_in_day:
+                # Сортируем список опоздавших по возрастанию времени
+                # Хранит [(time, "9:10  Абдувосиков Жавохир"), ...]
+                latecomer_users_list = list(latecomer_users_in_day.items())
+                latecomer_users_list.sort(key=lambda item: item[0])
+                latecomer_users_list = list(map(lambda it: it[1], latecomer_users_list))
+
+                msg2_3 = '\n'.join(latecomer_users_list)
+            else:
+                msg2_3 = config['msg']['no_latecomers']
+
+            msg2_block_list.append(msg2_1 + msg2_3)
+
+    msg1 = f"<b>{config['msg']['late_report_type']}</b>"
+    msg2 = '\n\n'.join(msg2_block_list)
+    msg = msg1 + '\n\n' + msg2
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
+
+
+
+###
+async def main_menu_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Если нажал на inline кнопку Главное меню
+    :param state:
+    :param callback_query:
+    :return:
+    """
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Вернем главное меню
+    await main_menu(callback_query, state)
+
+
+###
+def calc_presence_time(user_id, day):
+    """
+    Возвращает сколько часов(timedelta) рабочий был на работе в указанном дне в виде сообщения и timedelta чтобы
+    :param user_id:
+    :param day:
+    :return: ("Время присутствия: 2 часа 23мин", datetime.timedelta(xxx))
+    """
+    # Получим все in/out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...] или если ничего не найдено: []
+    all_in_outs_one_day = sql_handler.get_all_in_outs_one_day(user_id, day)
+
+    # Хотя в all_in_outs_one_day всегда должен быть информация, но на всякие случаи страхуемся
+    if all_in_outs_one_day:
+
+        in_device = config['device']['in_device']
+        out_device = config['device']['out_device']
+
+        in_time = 0
+        # Тут храним время присутствия одного дня
+        day_presence_time_delta = datetime.timedelta()
+
+        # Если в all_in_outs_one_day есть 2 in и 2 out, значит составим 2 строки: "in | out\n in | out"
+        for i in all_in_outs_one_day:
+            # Если in_time пуст, значит мы ожидаем in_time.
+            # !!! Но иногда после in может быть опять in если сотрудник при выходе не использовал faceid
+            if not in_time:
+                # Если получили in_device когда in_time пуст, значит всё в порядке
+                if i[1] == in_device:
+                    in_time = i[0]
+            # Если in_time не пуст значит мы ожидаем out_time
+            # !!! Но иногда после out может быть опять out если сотрудник при входе не использовал faceid
+            else:
+                # Если получили out_device когда in_time не пуст, значит всё в порядке
+                if i[1] == out_device:
+                    # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
+                    in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute,
+                                                       seconds=in_time.second)
+                    out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
+                    presence_time_delta = out_time_delta - in_time_delta
+                    day_presence_time_delta += presence_time_delta
+
+                    # Онулируем in_time
+                    in_time = 0
+                # Если получили in_device когда in_time не пуст, значит после прихода опять идет приход и уход между
+                # ними утерен из-за того что сотрудник не использовал faceid. В таком случаи мы не добавляем время в day_presence_time
+                else:
+                    # Запишем время в in_time чтобы в следующем цыкле не запустился "if not in_time"
+                    in_time = i[0]
+
+        # Из дельта переводим на обычный время опозданий
+        day_presence_time = datetime.datetime.min + day_presence_time_delta
+
+        # Вместо "Время присутствия: 07:52" создаем "Время присутствия: 7 часов 52 минуты"
+        hour = str(day_presence_time.hour)
+        minute = str(day_presence_time.minute)
+        if hour == '0':
+            time = f"{minute} мин."
+        else:
+            time = f"{hour.lstrip('0')} час. {minute} мин."
+        # Составим сообщение: "Время присутствия: 2 час. 51 мин."
+        mesg = config['msg']['presence_time'] + ' ' + time
+
+        return mesg, day_presence_time_delta
+    # Если вдруг что-то пошел ни так, тогда просто вернем пустую строку. Хотя так быть не должно
+    else:
+        return config['msg']['presence_time'], datetime.timedelta()
+
+
+###
 def early_leave_check(time):
     """
     :param time:
@@ -1722,6 +1941,7 @@ def register_handlers(dp: Dispatcher):
         lambda message: message.text == config['msg']['report']
     )
 
+    # Если выбрал "📋 Отчет одного сотрудника"
     dp.register_callback_query_handler(
         one_worker_report_handler,
         lambda c: c.data == 'one_worker_report'
@@ -1743,46 +1963,72 @@ def register_handlers(dp: Dispatcher):
         state=MyStates.waiting_for_term
     )
 
-    # Если выбрал 1 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  1 пункт
     dp.register_callback_query_handler(
         come_leave_report_type_handler,
         lambda c: c.data == 'come_leave_report_type',
         state=MyStates.waiting_for_report_type
     )
 
-    # Если выбрал 2 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  2 пункт
     dp.register_callback_query_handler(
         late_report_type_handler,
         lambda c: c.data == 'late_report_type',
         state=MyStates.waiting_for_report_type
     )
 
-    # Если выбрал 3 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  3 пункт
     dp.register_callback_query_handler(
         early_leaved_report_type_handler,
         lambda c: c.data == 'early_leaved_report_type',
         state=MyStates.waiting_for_report_type
     )
 
-    # Если выбрал 4 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  4 пункт
     dp.register_callback_query_handler(
         missed_days_report_type_handler,
         lambda c: c.data == 'missed_days_report_type',
         state=MyStates.waiting_for_report_type
     )
 
-    # Если выбрал 5 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  5 пункт
     dp.register_callback_query_handler(
         presence_time_report_type_handler,
         lambda c: c.data == 'presence_time_report_type',
         state=MyStates.waiting_for_report_type
     )
 
-    # Если выбрал 6 пункт
+    # Если выбрал 📋 Отчет одного сотрудника  ->  6 пункт
     dp.register_callback_query_handler(
         all_data_report_type_handler,
         lambda c: c.data == 'all_data_report_type',
         state=MyStates.waiting_for_report_type
+    )
+
+    # Если выбрал 🗂 Отчет всех сотрудников
+    dp.register_callback_query_handler(
+        all_workers_report_handler,
+        lambda c: c.data == 'all_workers_report'
+    )
+
+    # После того как ответил на "🗂 Отчет всех сотрудников" -> "Сколько дней хотите посмотреть (1-30 дней):"
+    dp.register_message_handler(
+        all_workers_chosen_term_handler,
+        state=MyStates.all_workers_waiting_for_term
+    )
+
+    # Если в "🗂 Отчет всех сотрудников" -> "Выберите тип отчета" нажал на "Опоздание":
+    dp.register_callback_query_handler(
+        all_workers_late_report_type_handler,
+        lambda c: c.data == 'all_workers_late_report_type',
+        state=MyStates.all_workers_waiting_for_report_type
+    )
+
+    # Если в "🗂 Отчет всех сотрудников" -> "Выберите тип отчета" нажал на inline кнопку Назад, тогда вернем "Сколько дней хотите посмотреть (1-30 дней):"
+    dp.register_callback_query_handler(
+        all_workers_report_handler,
+        lambda c: c.data == 'back',
+        state=MyStates.all_workers_waiting_for_report_type
     )
 
     dp.register_callback_query_handler(
