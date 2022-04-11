@@ -542,6 +542,36 @@ def get_user_in_history(user_id, date):
     return user_in
 
 
+def get_user_out_history(user_id, date):
+    """
+    Может возвращать 2 варианта:
+    Когда есть выход: out_time
+    Когда нету выхода: False
+    :param date:
+    :param user_id:
+    :return: Возвращает самый последний выход указанного дня: out_time. Если не пришел в тот день, тогда false
+    """
+
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    out_device = config['device']['out_device']
+
+    # Получим out_time. Для этого берем самый последний запись в выбранном числе
+    cursor.execute("""
+                    SELECT time FROM "ivms" 
+                    WHERE date = ? AND ID LIKE ? AND DeviceNo = ?
+                    ORDER BY datetime DESC;
+                    """,
+                   (date, '%0' + str(user_id), out_device)
+                   )
+    # Получаем время выхода
+    user_out = cursor.fetchone()
+
+    connection.close()
+    return user_out
+
+
 def get_all_in_outs_one_day(user_id, date):
     """
     Возвращает все in out указанного дня: [(datetime.time(9, 6, 47), 'DeviceNo'), ...]. Если ничего не найдено, тогда: []

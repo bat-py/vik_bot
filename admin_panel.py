@@ -22,7 +22,7 @@ class MyStates(StatesGroup):
     all_workers_waiting_for_term = State()
     all_workers_waiting_for_report_type = State()
     all_workers_waiting_report_page_buttons = State()
-    all_workers_waiting_report_page_buttons = State()
+    #all_workers_waiting_report_page_buttons = State()
 
 
 async def admin_command_handler(message: types.Message, state: FSMContext):
@@ -1562,6 +1562,9 @@ async def all_workers_report_handler(callback_query: types.CallbackQuery, state:
     except:
         pass
 
+    # Удаляем выбранный диапазон чтобы он мог выбрать новый
+    await state.update_data(term=None)
+
     # Меняем статус на waiting_for_term
     await MyStates.all_workers_waiting_for_term.set()
 
@@ -1581,17 +1584,22 @@ async def all_workers_report_handler(callback_query: types.CallbackQuery, state:
 async def all_workers_chosen_term_handler(message: types.Message, state: FSMContext):
     """
     Запуститься после того как админ выбрал "🗂 Отчет всех сотрудников -> сколько дней отчета надо показать(1-31)"
-    Продолжение 🗂 Отчет всех сотрудников
+    Или вернулся из какаго-то выбранного типа отчета
     :param message:
     :param state:
     :return: 3 пункта (Опоздание, Ранний уход, Пропущенные дни)
     """
     str_numbers = [str(i) for i in range(1, 31)]
 
-    # Если отправил число от 1 до 30:
-    if message.text.strip() in str_numbers:
-        # Сохраним выбранный диапазон
-        await state.update_data(term=message.text.strip())
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном диапазоне (1-30):
+    chosen_term = all_data.get('term')
+
+    # Если отправил число от 1 до 30 или вернулся из следующего меню используя кнопку Назад:
+    if message.text.strip() in str_numbers or (message.text == config['msg']['back'] and chosen_term):
+        # Сохраним выбранный диапазон(Если его изначально не было, если было значит он вернулся сюда из след. меню
+        if not chosen_term:
+            await state.update_data(term=message.text.strip())
 
         # Меняем статус на all_workers_waiting_for_term
         await MyStates.all_workers_waiting_for_report_type.set()
@@ -1670,6 +1678,11 @@ async def all_workers_late_report_type_handler(callback_query: types.CallbackQue
     except:
         pass
 
+    # Отправим всплывающее сообщение: Секундочку
+    await callback_query.answer(
+        config['msg']['wait']
+    )
+
     # Установим новое состояние чтобы кнопка Назад после показа отчета работал
     await MyStates.all_workers_waiting_report_page_buttons.set()
 
@@ -1689,7 +1702,7 @@ async def all_workers_late_report_type_handler(callback_query: types.CallbackQue
 
     msg2_block_list = []
     # Каждый цыкл составит сообщение:
-    # "--- 28.03.2022 ---\n Абдувосиков Жавохир (Приход 9:10)\n Шерибаев Азизбек (Приход 10:40)\n ..."
+    # "--- 28.03.2022 ---\n 9:10 Абдувосиков Жавохир \n 10:40 Шерибаев Азизбек\n ..."
     for day in chosen_days:
         msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
                  config['msg']['three_lines'] + '</b>\n'
@@ -1699,20 +1712,22 @@ async def all_workers_late_report_type_handler(callback_query: types.CallbackQue
             msg2_2 = config['msg']['weekend']
             msg2_block_list.append(msg2_1 + msg2_2)
         else:
+            # Чтобы определить пришел ли он во время или нет нам понадобится время начала работы в timedelta формате
+            start_hour = int(config['time']['start_hour'])
+            start_minute = int(config['time']['start_minute']) + 10
+            start_time = datetime.timedelta(hours=start_hour, minutes=start_minute)
+
             # Библиотека рабочих кто опоздал в указанном дне: {time: "9:10  Абдувосиков Жавохир", ...}
             latecomer_users_in_day = {}
+
             # Каждый цыкл составит одну строку про одного опоздавшего челевека: "9:10  Абдувосиков Жавохир"
             for worker in all_workers:
                 # Получаем время приходауказанной даты: in_time или False если не пришел
                 in_time = sql_handler.get_user_in_history(worker[0], day)
 
-                # Если in_out_time не равно False
+                # Если in_time не равно False
                 if in_time:
                     # Теперь определим опоздал ли он или нет
-                    start_hour = int(config['time']['start_hour'])
-                    start_minute = int(config['time']['start_hour']) + 10
-                    start_time = datetime.timedelta(hours=start_hour, minutes=start_minute)
-
                     came_time = datetime.timedelta(
                         hours=in_time[0].hour,
                         minutes=in_time[0].minute,
@@ -1753,6 +1768,218 @@ async def all_workers_late_report_type_handler(callback_query: types.CallbackQue
         reply_markup=button
     )
 
+
+async def all_workers_early_leaved_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Запустится если нажал на "🗂 Отчет всех сотрудников"  ->  "Ранний уход"
+    :param callback_query:
+    :param state:
+    :return:
+    """
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Отправим всплывающее сообщение: Секундочку
+    await callback_query.answer(
+        config['msg']['wait']
+    )
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.all_workers_waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
+    chosen_term = all_data['term']
+
+    # Получаем список всех рабочих(who=control): [(ID, name, Who, chat_id), ...]
+    all_workers = sql_handler.get_all_workers()
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    for day in chosen_days:
+        msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                 config['msg']['three_lines'] + '</b>\n'
+
+        # Если данное число(date) выходной, тогда напишем: "--- 10.04.2022 ---\n 🗓 Выходные"
+        if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+            msg2_2 = config['msg']['weekend']
+            msg2_block_list.append(msg2_1 + msg2_2)
+        # Если данное число(date) не выходной
+        else:
+            # Чтобы определить пришел ли он во время или нет нам понадобится время начала работы в timedelta формате
+            end_hour = int(config['time']['end_hour'])
+            end_minute = int(config['time']['end_minute'])
+            end_time = datetime.timedelta(hours=end_hour, minutes=end_minute) - datetime.timedelta(minutes=10)
+
+            # Библиотека рабочих кто ушел раньше в указанном дне: {time: "9:10  Абдувосиков Жавохир", ...}
+            early_leaved_users_in_day = {}
+
+            # Каждый цыкл составит одну строку про одного челевека кто ушел раньше: "9:10  Абдувосиков Жавохир"
+            for worker in all_workers:
+                # Получаем время ухода указанной даты: out_time или False
+                out_time = sql_handler.get_user_out_history(worker[0], day)
+
+                # Если out_time не равно False
+                if out_time:
+                    # Теперь определим ушел ли раньше времени или нет
+                    leave_time = datetime.timedelta(
+                        hours=out_time[0].hour,
+                        minutes=out_time[0].minute,
+                        seconds=out_time[0].second
+                    )
+
+                    # Если время ухода меньше чем время окончания работы значит он ушел раньше времени
+                    if leave_time < end_time:
+                        leave_time_str = out_time[0].strftime('%H:%M')
+                        # В early_leaved_users_in_day добавим: "17:10  Абдувосиков Жавохир"
+                        mesg1 = f"<b>{leave_time_str}</b>  {worker[1]}"
+                        early_leaved_users_in_day[out_time[0]] = mesg1
+
+            # Если в указанном дне хоть кто-то ушел раньше времени
+            if early_leaved_users_in_day:
+                # Сортируем список рано ушедших по возрастанию времени
+                # Хранит [(time, "9:10  Абдувосиков Жавохир"), ...]
+                early_leaved_users_list = list(early_leaved_users_in_day.items())
+                early_leaved_users_list.sort(key=lambda item: item[0])
+                early_leaved_users_list = list(map(lambda it: it[1], early_leaved_users_list))
+
+                msg2_3 = '\n'.join(early_leaved_users_list)
+            else:
+                msg2_3 = config['msg']['no_early_leaved']
+
+            msg2_block_list.append(msg2_1 + msg2_3)
+
+    msg1 = f"<b>{config['msg']['early_leaved_report_type']}</b>"
+    msg2 = '\n\n'.join(msg2_block_list)
+    msg = msg1 + '\n\n' + msg2
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
+
+
+async def all_workers_missed_days_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Запустится если нажал на "🗂 Отчет всех сотрудников"  ->  "Пропущенные дни"
+    :return:
+    """
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query.bot.delete_message(
+                callback_query.message.chat.id,
+                callback_query.message.message_id - i
+            )
+    except:
+        pass
+
+    # Отправим всплывающее сообщение: Секундочку
+    await callback_query.answer(
+        config['msg']['wait']
+    )
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.all_workers_waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном диапазоне (1-30):
+    chosen_term = all_data['term']
+
+    # Получаем список всех рабочих(who=control): [(ID, name, Who, chat_id), ...]
+    all_workers = sql_handler.get_all_workers()
+
+    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
+    chosen_days = []
+    for i in range(int(chosen_term)):
+        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
+        chosen_days.append(day)
+    chosen_days.reverse()
+
+    msg2_block_list = []
+    # Каждый цыкл составит сообщение:
+    # "--- 28.03.2022 ---\n Абдувосиков Жавохир \n Шерибаев Азизбек\n ..."
+    for day in chosen_days:
+        msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
+                 config['msg']['three_lines'] + '</b>\n'
+
+        # Если данное число(date) выходной, тогда напишем: "--- 10.04.2022 ---\n 🗓 Выходные"
+        if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
+            msg2_2 = config['msg']['weekend']
+            msg2_block_list.append(msg2_1 + msg2_2)
+        else:
+            # Список рабочих кто не пришел в указанном дне: ["Алимов Алишер", ...]
+            missed_users_in_day = []
+
+            # Каждый цыкл составит одну строку про одного опоздавшего челевека: "9:10  Абдувосиков Жавохир"
+            for worker in all_workers:
+                # Получаем время приходауказанной даты: in_time или False если не пришел
+                in_time = sql_handler.get_user_in_history(worker[0], day)
+
+                # Если in_time равно False, значит он не пришел
+                if not in_time:
+                    # В latecomer_users_in_day добавим: "Абдувосиков Жавохир"
+                    missed_users_in_day.append(worker[1])
+
+            # Если в указанном дне хоть кто-то не пришел
+            if missed_users_in_day:
+                msg2_3 = '\n'.join(missed_users_in_day)
+            else:
+                msg2_3 = config['msg']['no_missed']
+
+            msg2_block_list.append(msg2_1 + msg2_3)
+
+    msg1 = f"<b>{config['msg']['missed_days_report_type']}</b>"
+    msg2 = '\n\n'.join(msg2_block_list)
+    msg = msg1 + '\n\n' + msg2
+
+    # Кнопки "Назад" и "Главное меню"
+    button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+    await callback_query.bot.send_message(
+        callback_query.from_user.id,
+        msg,
+        reply_markup=button
+    )
+
+
+async def all_workers_report_page_buttons(message: types.Message, state: FSMContext):
+    """
+    Эта функция нужна чтобы того как показал отчет за выбранный период мог работать кнопка Назад
+    :param message:
+    :param state:
+    :return:
+    """
+    # Если нажал на кнопку Назад то вернем меню выбора типа отчета(3 пунктов из inline кнопок)
+    if message.text == config['msg']['back']:
+        await all_workers_chosen_term_handler(message, state)
+    # Если нажал на главное меню, то удалим последные 2 сообщения и вернем главное меню
+    elif message.text == config['msg']['main_menu']:
+        # Удаляем 2 последние сообщения
+        try:
+            for i in range(2):
+                await message.bot.delete_message(message.chat.id, message.message_id - i)
+        except:
+            pass
+
+        await main_menu(message, state)
 
 
 ###
@@ -1897,11 +2124,18 @@ def early_leave_check(time):
 
 
 def register_handlers(dp: Dispatcher):
-    # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет за выбранный период
+    # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет(одного пользователя) за выбранный период
     dp.register_message_handler(
         report_page_buttons,
         content_types=['text'],
         state=MyStates.waiting_report_page_buttons
+    )
+
+    # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет(всех пользователей) за выбранный период
+    dp.register_message_handler(
+        all_workers_report_page_buttons,
+        content_types=['text'],
+        state=MyStates.all_workers_waiting_report_page_buttons
     )
 
     dp.register_message_handler(
@@ -2021,6 +2255,20 @@ def register_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         all_workers_late_report_type_handler,
         lambda c: c.data == 'all_workers_late_report_type',
+        state=MyStates.all_workers_waiting_for_report_type
+    )
+
+    # Если в "🗂 Отчет всех сотрудников" -> "Выберите тип отчета" нажал на "Ранний уход":
+    dp.register_callback_query_handler(
+        all_workers_early_leaved_report_type_handler,
+        lambda c: c.data == 'all_workers_early_leaved_report_type',
+        state=MyStates.all_workers_waiting_for_report_type
+    )
+
+    # Если в "🗂 Отчет всех сотрудников" -> "Выберите тип отчета" нажал на "Пропущенные дни":
+    dp.register_callback_query_handler(
+        all_workers_missed_days_report_type_handler,
+        lambda c: c.data == 'all_workers_missed_days_report_type',
         state=MyStates.all_workers_waiting_for_report_type
     )
 
