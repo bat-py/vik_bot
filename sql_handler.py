@@ -52,8 +52,13 @@ def get_user_name(user_id):
     cursor.execute('SELECT Name FROM "user" WHERE ID = ?;', (user_id,))
     users_name = cursor.fetchone()
 
+    try:
+        name = users_name[0]
+    except:
+        name = '?????'
+
     connection.close()
-    return users_name[0]
+    return name
 
 
 def update_chat_id(chat_id: int, user_id: int):
@@ -85,6 +90,35 @@ def get_todays_logins():
 
     connection.close()
     return logins
+
+
+def get_present_workers_dict():
+    """
+    :return: Список тех кто пришел сегодня(последный запись за сегодня): [(id, time, DeviceNo, name), ].
+    Если DeviceNo == out значит он вышел на улицу и не в офисе
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    # Получаем сегодняшные записи
+    cursor.execute("""
+    SELECT ID, time, DeviceNo
+    FROM ivms WHERE date >= cast(getdate()-1 as date) and date < cast(getdate()+1 as date)
+    ORDER BY datetime DESC;
+    """)
+    all_data = cursor.fetchall()
+
+    # Тут хранится самый последний сегодняшний запись о пользователе: {user_id: (user_id, time, DeviceNo, user_name)}
+    all_workers_last_log = {}
+
+    for i in all_data:
+        # Если еще нету записи об этом человеке в all_workers_last_log, тогда его запищим
+        if i[0] not in all_workers_last_log:
+            name = get_user_name(int(i[0]))
+            all_workers_last_log[i[0]] = [*i, name]
+
+    connection.close()
+    return all_workers_last_log
 
 
 def get_users_name_chat_id(id_list):

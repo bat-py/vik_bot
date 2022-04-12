@@ -22,7 +22,6 @@ class MyStates(StatesGroup):
     all_workers_waiting_for_term = State()
     all_workers_waiting_for_report_type = State()
     all_workers_waiting_report_page_buttons = State()
-    #all_workers_waiting_report_page_buttons = State()
 
 
 async def admin_command_handler(message: types.Message, state: FSMContext):
@@ -69,6 +68,7 @@ async def admin_command_handler(message: types.Message, state: FSMContext):
 async def check_password(message: types.Message, state: FSMContext):
     """
     Проверяет введенный пароль
+    :param state:
     :param message:
     :return:
     """
@@ -351,39 +351,47 @@ async def present_list_handler(message: types.Message, state: FSMContext):
     :return:
     """
 
-    # Получаем ID тех кто пришел
-    ids_who_came = sql_handler.get_todays_logins()
-    ids_who_came = [int(i[0]) for i in ids_who_came]
+    # Получаем список тех кто пришел сегодня(последный запись за сегодня): {id: (id, time, DeviceNo, name), ...}
+    dict_who_came = sql_handler.get_present_workers_dict()
     # Список всех пользователей (только те где Who == 'Control')
     all_members_id = sql_handler.get_all_users_id(control=True)
     all_members_id = [i[0] for i in all_members_id]
 
-    # Список присутствующих
+    # Список присутствующих у кого Who == Control: ((id, time, DeviceNo, name), ...)
     present_list = []
     for i in all_members_id:
-        if i in ids_who_came:
-            present_list.append(i)
+        if i in dict_who_came:
+            present_list.append(dict_who_came[i])
+
+    # Сортируем present_list по name
+    present_list.sort(key=lambda item: item[3])
+
+    # Если есть присутствующие
+    if present_list:
+        msg3_blocks = []
+
+        in_device = config['device']['in_device']
+        # Каждый воркер хранит: (id, time, DeviceNo, name)
+        for worker in present_list:
+            # Если последный запись был через in_device, значит он всё еще в офисе
+            if worker[2] == in_device:
+                msg3_blocks.append(f"{config['msg']['green']} {worker[3]}")
+            else:
+                time = worker[1].strftime('%H:%M')
+                msg3_blocks.append(f"{config['msg']['yellow']} {worker[3]} ({config['msg']['leaved_no_bold']} {time})")
+        msg3 = '\n'.join(msg3_blocks)
+
+    # Если все не пришли и присутствующих нет
+    else:
+        msg3 = config['msg']['no_present']
 
     # Создаем 1 строку: --- 21.05.2022 ---
     lines = config['msg']['three_lines']
     msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+    # Создаем вторую строку: "Список присутствующих людей:"
+    msg2 = config['msg']['present_full']
 
-    # Если есть присутствующие
-    if present_list:
-        # Получаем список присутствующих: [(ID, Name, chat_id), ...]
-        present_users = sql_handler.get_users_name_chat_id(present_list)
-
-        present_users_names_list = []
-        for n, user in enumerate(present_users):
-            msg = f"{n + 1}. {user[1]}"
-            present_users_names_list.append(msg)
-
-        msg2 = config['msg']['present_full']
-        msg3 = '\n'.join(present_users_names_list)
-        msg = msg1 + '\n' + msg2 + '\n' + msg3
-    # Если все не пришли и присутствующих нет
-    else:
-        msg = msg1 + '\n' + config['msg']['present_full'] + '\n' + config['msg']['no_present']
+    msg = msg1 + '\n' + msg2 + '\n' + msg3
 
     # Удаляем сообщение "missing"
     try:
