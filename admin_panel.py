@@ -372,10 +372,10 @@ async def present_list_handler(message: types.Message, state: FSMContext):
         for worker in present_list:
             # Если последный запись был через in_device, значит он всё еще в офисе
             if worker[2] == in_device:
-                msg3_blocks.append(f"{config['msg']['green']} {str(num)}. {worker[3]}")
+                msg3_blocks.append(f"{config['msg']['green']} {worker[3]}")
             else:
                 time = worker[1].strftime('%H:%M')
-                msg3_blocks.append(f"{config['msg']['yellow']} {str(num)}. {worker[3]} ({config['msg']['leaved_no_bold']} {time})")
+                msg3_blocks.append(f"{config['msg']['yellow']} <b>{time}</b> {worker[3]}")
             num += 1
 
         msg3 = '\n'.join(msg3_blocks)
