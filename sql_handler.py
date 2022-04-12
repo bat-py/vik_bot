@@ -61,6 +61,25 @@ def get_user_name(user_id):
     return name
 
 
+def get_user_name_and_who(user_id):
+    """
+    :param user_id:
+    :return: user_name, who(Control/Uncontrol)
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute('SELECT Name, Who FROM "user" WHERE ID = ?;', (user_id,))
+    users_name = cursor.fetchone()
+
+    connection.close()
+
+    if users_name:
+        return users_name
+    else:
+        return '?????', 'Control'
+
+
 def update_chat_id(chat_id: int, user_id: int):
     """
     Updates chat_id in table "user"
@@ -92,7 +111,7 @@ def get_todays_logins():
     return logins
 
 
-def get_present_workers_dict():
+def get_present_workers_list():
     """
     :return: Список тех кто пришел сегодня(последный запись за сегодня): [(id, time, DeviceNo, name), ].
     Если DeviceNo == out значит он вышел на улицу и не в офисе
@@ -108,14 +127,22 @@ def get_present_workers_dict():
     """)
     all_data = cursor.fetchall()
 
-    # Тут хранится самый последний сегодняшний запись о пользователе: {user_id: (user_id, time, DeviceNo, user_name)}
-    all_workers_last_log = {}
+    # Тут хранится самый последний сегодняшний запись о пользователей: [(user_id, time, DeviceNo, user_name), ....]
+    all_workers_last_log = []
 
+    added_users = []
     for i in all_data:
-        # Если еще нету записи об этом человеке в all_workers_last_log, тогда его запищим
-        if i[0] not in all_workers_last_log:
-            name = get_user_name(int(i[0]))
-            all_workers_last_log[int(i[0])] = [*i, name]
+        # Если еще нету id этого человека в added_users, тогда его запищим
+        if i[0] not in added_users:
+            # Добавим id сотрудника в added_users. Следующий раз его проверять не будем
+            added_users.append(i[0])
+
+            # Получает имя сотрудника и Who(Control/Uncontrol)
+            name_and_who = get_user_name_and_who(int(i[0]))
+
+            # Если человек находится в Control, значит его добавим в all_workers_last_log
+            if name_and_who[1] == 'Control':
+                all_workers_last_log.append((*i, name_and_who[0]))
 
     connection.close()
     return all_workers_last_log

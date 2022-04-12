@@ -353,18 +353,9 @@ async def present_list_handler(message: types.Message, state: FSMContext):
     :param message:
     :return:
     """
-
-    # Получаем список тех кто пришел сегодня(последный запись за сегодня): {id: (id, time, DeviceNo, name), ...}
-    dict_who_came = sql_handler.get_present_workers_dict()
-    # Список всех пользователей (только те где Who == 'Control')
-    all_members_id = sql_handler.get_all_users_id(control=True)
-    all_members_id = [i[0] for i in all_members_id]
-
-    # Список присутствующих у кого Who == Control: ((id, time, DeviceNo, name), ...)
-    present_list = []
-    for i in all_members_id:
-        if i in dict_who_came:
-            present_list.append(dict_who_came[i])
+    # Получаем список тех кто пришел сегодня(последный запись за сегодня): [(id, time, DeviceNo, name), ...]
+    # get_present_workers_list сама проверяет Who(Control/Uncontrol) и вернет тех у кого Control
+    present_list = sql_handler.get_present_workers_list()
 
     # Сортируем present_list по name
     present_list.sort(key=lambda item: item[3])
