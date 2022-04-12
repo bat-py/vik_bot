@@ -103,7 +103,7 @@ def get_present_workers_dict():
     # Получаем сегодняшные записи
     cursor.execute("""
     SELECT ID, time, DeviceNo
-    FROM ivms WHERE date >= cast(getdate()-1 as date) and date < cast(getdate()+1 as date)
+    FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date)
     ORDER BY datetime DESC;
     """)
     all_data = cursor.fetchall()
@@ -115,7 +115,7 @@ def get_present_workers_dict():
         # Если еще нету записи об этом человеке в all_workers_last_log, тогда его запищим
         if i[0] not in all_workers_last_log:
             name = get_user_name(int(i[0]))
-            all_workers_last_log[i[0]] = [*i, name]
+            all_workers_last_log[int(i[0])] = [*i, name]
 
     connection.close()
     return all_workers_last_log
