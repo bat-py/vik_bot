@@ -319,6 +319,9 @@ async def missing_list_handler(message: types.Message):
         # Получаем список опоздавших: [(ID, Name, chat_id), ...]
         latecommer_users = sql_handler.get_users_name_chat_id(latecommers)
 
+        # Сортируем список по имени людей
+        latecommer_users.sort(key=lambda item: item[1])
+
         latecommer_users_names_list = []
         for n, user in enumerate(latecommer_users):
             msg = f"{n + 1}. {user[1]}"
@@ -371,14 +374,19 @@ async def present_list_handler(message: types.Message, state: FSMContext):
         msg3_blocks = []
 
         in_device = config['device']['in_device']
+
+        num = 1
+
         # Каждый воркер хранит: (id, time, DeviceNo, name)
         for worker in present_list:
             # Если последный запись был через in_device, значит он всё еще в офисе
             if worker[2] == in_device:
-                msg3_blocks.append(f"{config['msg']['green']} {worker[3]}")
+                msg3_blocks.append(f"{config['msg']['green']} {str(num)}. {worker[3]}")
             else:
                 time = worker[1].strftime('%H:%M')
-                msg3_blocks.append(f"{config['msg']['yellow']} {worker[3]} ({config['msg']['leaved_no_bold']} {time})")
+                msg3_blocks.append(f"{config['msg']['yellow']} {str(num)}. {worker[3]} ({config['msg']['leaved_no_bold']} {time})")
+            num += 1
+
         msg3 = '\n'.join(msg3_blocks)
 
     # Если все не пришли и присутствующих нет
