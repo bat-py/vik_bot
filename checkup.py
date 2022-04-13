@@ -16,6 +16,7 @@ config.read('config.ini')
 
 class MyStates(StatesGroup):
     waiting_for_comment = State()
+    waiting_for_geolocation = State()
 
 
 async def check_userws_in_logs(dp: Dispatcher):
@@ -252,10 +253,10 @@ async def leave_comment_inline_button_handler(callback_query: types.CallbackQuer
     report_id = callback_query.data.replace('comment', '')
 
     # Удаляем inline кнопку
-    await callback_query.bot.edit_message_reply_markup(
-        callback_query.message.chat.id,
-        callback_query.message.message_id
-    )
+    #await callback_query.bot.edit_message_reply_markup(
+    #    callback_query.message.chat.id,
+    #    callback_query.message.message_id
+    #)
 
     # Сохраним report_id
     await state.update_data(report_id=report_id)
@@ -288,16 +289,52 @@ async def leaved_comment_handler(message: types.Message, state: FSMContext):
         all_data = await state.get_data()
         comment_id = all_data['report_id']
 
-        # Отключаем state
-        await state.finish()
-
         # Запишем комментарию в таблицу report
         sql_handler.comment_writer(comment_id, comment)
 
-        # Сообщим пользователю что комментария сохранена
-        button_hider = button_creators.hide_reply_buttons()
-        msg = config['msg']['comment_saved']
-        await message.answer(msg, reply_markup=button_hider)
+        # Меняем state на "waiting_for_geolocation" чтобы пользователь мог отправить геолокацию
+        await MyStates.waiting_for_geolocation.set()
+
+        # Сообщим пользователю что комментария сохранена и попросим у него геолокацию
+        msg = config['msg']['comment_saved'] + ' ' + config['msg']['send_geolocation']
+
+        # Создаем reply кнопку который автоматически отправит геолокацию
+        button = button_creators.geolocation_sender_button(config['msg']['send_geolocation_button_text'])
+
+        # Отправим сообщение
+        await message.answer(
+            msg,
+            reply_markup=button
+        )
+
+
+async def leaved_geolocation_handler(message: types.Message, state: FSMContext):
+    """
+    Запуститься после того как опоздавший отправил свою геолокацию
+    :param state:
+    :param message:
+    :return:
+    """
+    #await message.bot.send_location(
+    #    message.chat.id,
+    #    message.location.latitude,
+    #    message.location.longitude
+    #)
+
+    # Остановим state "waiting_for_geolocation"
+    await state.finish()
+
+    all_data = await state.get_data()
+    comment_id = all_data['report_id']
+
+    # Запишем latitude и longitude в столбец location в виде: "latitude,longitude"
+    sql_handler.location_writer(comment_id, message.location.latitude, message.location.longitude)
+
+    msg = config['msg']['location_saved']
+    await message.bot.send_message(
+        message.chat.id,
+        msg
+    )
 
 
 async def check_end_of_the_day(dp: Dispatcher):
@@ -399,4 +436,10 @@ def register_handlers(dp: Dispatcher):
     dp.register_message_handler(
         leaved_comment_handler,
         state=MyStates.waiting_for_comment
+    )
+
+    dp.register_message_handler(
+        leaved_geolocation_handler,
+        content_types=['location'],
+        state=MyStates.waiting_for_geolocation
     )

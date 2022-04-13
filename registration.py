@@ -106,7 +106,7 @@ async def user_id_confirmation(message: types.Message, state: FSMContext):
 
 async def user_id_confirmed(message: types.Message, state: FSMContext):
     """
-    Запуститься после того как пользователь подтвердил свой выбор
+    Запуститься после того как пользователь подтвердил свой выбор (Нажал на кнопку "Да" или "Нет")
     :param message:
     :param state:
     :return:

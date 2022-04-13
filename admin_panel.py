@@ -358,27 +358,30 @@ async def present_list_handler(message: types.Message, state: FSMContext):
     present_list = sql_handler.get_present_workers_list()
 
     # Сортируем present_list по name
-    present_list.sort(key=lambda item: item[3])
+    #
 
     # Если есть присутствующие
     if present_list:
-        msg3_blocks = []
+        # Тут будет список тех кто все еще находится в офиса: [(id, time, DeviceNo, name), ...]
+        msg3_green_block = []
+        # Тут будет список тех кто вышел из офиса: [(id, time, DeviceNo, name), ...]
+        msg3_yellow_block = []
 
         in_device = config['device']['in_device']
-
-        num = 1
-
         # Каждый воркер хранит: (id, time, DeviceNo, name)
         for worker in present_list:
             # Если последный запись был через in_device, значит он всё еще в офисе
             if worker[2] == in_device:
-                msg3_blocks.append(f"{config['msg']['green']} {worker[3]}")
+                msg3_green_block.append(f"{config['msg']['green']} {worker[3]}")
             else:
                 time = worker[1].strftime('%H:%M')
-                msg3_blocks.append(f"{config['msg']['yellow']} <b>{time}</b> {worker[3]}")
-            num += 1
+                msg3_yellow_block.append(f"{config['msg']['yellow']} <b>{time}</b> {worker[3]}")
 
-        msg3 = '\n'.join(msg3_blocks)
+        # сортируем msg3_green_block и msg3_yellow_block
+        msg3_green_block.sort()
+        msg3_yellow_block.sort()
+
+        msg3 = '\n'.join(msg3_green_block) + '\n' + '\n'.join(msg3_yellow_block)
 
     # Если все не пришли и присутствующих нет
     else:

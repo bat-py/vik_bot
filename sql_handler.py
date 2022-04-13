@@ -361,6 +361,19 @@ def comment_writer(comment_id, comment):
     connection.close()
 
 
+def location_writer(comment_id, latitude, longitude):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    location = latitude + ',' + longitude
+
+    cursor.execute("""UPDATE "report" SET location = ? WHERE id = ? """, (location, comment_id))
+    connection.commit()
+
+    connection.close()
+
+
+
 def get_all_workers():
     connection = connection_creator()
     cursor = connection.cursor()

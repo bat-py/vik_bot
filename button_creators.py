@@ -1,5 +1,7 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton, \
+    ReplyKeyboardRemove
 import sql_handler
+import configparser
 
 
 def inline_keyboard_creator(buttons_list, row_width=2):
@@ -39,3 +41,11 @@ def hide_reply_buttons():
     hide_buttons = ReplyKeyboardRemove()
 
     return hide_buttons
+
+
+def geolocation_sender_button(button_text):
+    buttons = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    button = KeyboardButton(button_text, request_location=True)
+    buttons.add(button)
+
+    return buttons
