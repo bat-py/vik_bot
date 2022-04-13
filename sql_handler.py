@@ -189,17 +189,22 @@ def get_admins_list():
 
 def get_admins_where_notification_on(type_of_notification):
     """
-    :param type_of_notification: Тут передаешь имя столбца уведомления(их 3) из таблицы admins
-    :return: admins list where notification is on: [(chat_id, first_name, notification), ...]
+    :param type_of_notification: Тут передаешь имя столбца уведомления(их 4) из таблицы admins
+    :return: admins chat_id list where type_of_notification is on: [(chat_id,), ...]
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('SELECT * FROM "admins" WHERE {} = 1;'.format(type_of_notification))
+    #cursor.execute('SELECT * FROM "admins" WHERE {} = 1;'.format(type_of_notification))
+    cursor.execute('SELECT chat_id FROM "admins" WHERE {} = 1;'.format(type_of_notification))
+
     admins_list = cursor.fetchall()
 
     connection.close()
     return admins_list
+
+
+print(get_admins_where_notification_on('comment_notification'))
 
 
 def check_admin_exist(chat_id):
@@ -227,7 +232,7 @@ def get_admin_notification_status(chat_id):
     cursor = connection.cursor()
 
     cursor.execute("""
-    SELECT late_come_notification, latecomer_came_notification, early_leave_notification
+    SELECT late_come_notification, latecomer_came_notification, comment_notification, early_leave_notification
     FROM "admins" 
     WHERE chat_id = ?;""", (chat_id,))
     status = cursor.fetchone()
@@ -247,7 +252,7 @@ def update_admin_notification_status(chat_id, status):
 
     cursor.execute("""
     UPDATE "admins"
-    SET late_come_notification = ?, latecomer_came_notification = ?, early_leave_notification = ?
+    SET late_come_notification = ?, latecomer_came_notification = ?, comment_notification = ?, early_leave_notification = ?
     WHERE chat_id = ?;""", (*status, chat_id))
     connection.commit()
 
@@ -351,6 +356,21 @@ def report_creator(user_id):
     return generated_id
 
 
+def get_report_by_id(report_id):
+    """
+    :param report_id:
+    :return: Возвращает найденный report по id: (id, user_id, date, comment, time, location)
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""SELECT * FROM "report" WHERE id = ?""", (report_id,))
+    report = cursor.fetchone()
+
+    connection.close()
+    return report
+
+
 def comment_writer(comment_id, comment):
     connection = connection_creator()
     cursor = connection.cursor()
@@ -365,13 +385,12 @@ def location_writer(comment_id, latitude, longitude):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    location = latitude + ',' + longitude
+    location = str(latitude) + ',' + str(longitude)
 
     cursor.execute("""UPDATE "report" SET location = ? WHERE id = ? """, (location, comment_id))
     connection.commit()
 
     connection.close()
-
 
 
 def get_all_workers():
@@ -389,7 +408,7 @@ def get_data_by_term(user_id, term):
     """
     :param user_id:
     :param term:
-    :return: Возвращает записи из таблицы "report" работника в указанном сроке
+    :return: Возвращает записи из таблицы "report" работника в указанном сроке: [(id, user_id, date, comment, time, locatoin), ]
     """
     connection = connection_creator()
     cursor = connection.cursor()
@@ -478,7 +497,7 @@ def get_early_leaved_users():
             continue
 
         end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
-                                            minutes=int(config['time']['end_minute']))
+                                            minutes=int(config['time']['end_minute'])-10)
         leaved_time_delta = datetime.timedelta(hours=out[2].hour, minutes=out[2].minute)
         if leaved_time_delta < end_time_delta:
             early_leaved_users_dict_clear[user_id] = out

@@ -258,11 +258,11 @@ async def leave_comment_inline_button_handler(callback_query: types.CallbackQuer
     #    callback_query.message.message_id
     #)
 
-    # Сохраним report_id
-    await state.update_data(report_id=report_id)
-
     # Установим статус
     await MyStates.waiting_for_comment.set()
+
+    # Сохраним report_id
+    await state.update_data(report_id=report_id)
 
     # Отправим сообщения "Можете оставить комментарии"
     msg = config['msg']['you_can_leave_comment']
@@ -287,16 +287,16 @@ async def leaved_comment_handler(message: types.Message, state: FSMContext):
     else:
         comment = message.text
         all_data = await state.get_data()
-        comment_id = all_data['report_id']
+        report_id = all_data['report_id']
 
         # Запишем комментарию в таблицу report
-        sql_handler.comment_writer(comment_id, comment)
+        sql_handler.comment_writer(report_id, comment)
 
         # Меняем state на "waiting_for_geolocation" чтобы пользователь мог отправить геолокацию
         await MyStates.waiting_for_geolocation.set()
 
         # Сообщим пользователю что комментария сохранена и попросим у него геолокацию
-        msg = config['msg']['comment_saved'] + ' ' + config['msg']['send_geolocation']
+        msg = config['msg']['send_geolocation']
 
         # Создаем reply кнопку который автоматически отправит геолокацию
         button = button_creators.geolocation_sender_button(config['msg']['send_geolocation_button_text'])
@@ -321,20 +321,32 @@ async def leaved_geolocation_handler(message: types.Message, state: FSMContext):
     #    message.location.longitude
     #)
 
+    all_data = await state.get_data()
+    report_id = all_data['report_id']
+
     # Остановим state "waiting_for_geolocation"
     await state.finish()
 
-    all_data = await state.get_data()
-    comment_id = all_data['report_id']
-
     # Запишем latitude и longitude в столбец location в виде: "latitude,longitude"
-    sql_handler.location_writer(comment_id, message.location.latitude, message.location.longitude)
+    sql_handler.location_writer(report_id, message.location.latitude, message.location.longitude)
 
     msg = config['msg']['location_saved']
     await message.bot.send_message(
         message.chat.id,
         msg
     )
+
+    # Получим список всех админов у кого столбец comment_notification == 1: [(chat_id,), ...]
+    comment_notification_on_admins = sql_handler.get_admins_where_notification_on('comment_notification')
+
+    for admin in comment_notification_on_admins:
+        await message.bot.send_location(
+            admin[0],
+            latitude=message.location.latitude,
+            longitude=message.location.longitude,
+
+        )
+
 
 
 async def check_end_of_the_day(dp: Dispatcher):

@@ -7,6 +7,8 @@ import button_creators
 import sql_handler
 from aiogram import types, Dispatcher
 import datetime
+from geopy.geocoders import Nominatim
+geolocator = Nominatim(user_agent="vik_bot")
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -18,6 +20,9 @@ class MyStates(StatesGroup):
     waiting_for_term = State()
     waiting_for_report_type = State()
     waiting_report_page_buttons = State()
+    # После нажатия на кнопку "Геолокация" в меню "Выберите тип отчета:", бот покажет ему все доступные геолокации за
+    # выбранный период в виде inline кнопок и ждет пока он не выберет нужный день
+    waiting_for_location = State()
 
     all_workers_waiting_for_term = State()
     all_workers_waiting_for_report_type = State()
@@ -165,7 +170,7 @@ async def report_menu(message: types.Message, state: FSMContext):
         [[config['msg']['all_workers_report'], 'all_workers_report']],
         [[config['msg']['excel_report'], 'excel_report']],
         [[config['msg']['main_menu'], 'main_menu']]
-        ]
+    ]
     )
 
     msg = config['msg']['report_type']
@@ -178,7 +183,7 @@ async def report_menu(message: types.Message, state: FSMContext):
 
 def on_off_menu_handler_buttons_creator(admin_status):
     """
-    Функцию передаем лист: [0, 1, 1]. Исходя из этого он создает нам кнопки
+    Функцию передаем лист: [0, 1, 1, 0]. Исходя из этого он создает нам кнопки
     :param admin_status:
     :return: Вернет созданные кнопки меню "Вкл/Выкл уведомление"
     """
@@ -195,14 +200,17 @@ def on_off_menu_handler_buttons_creator(admin_status):
 
     but1_msg = f"{config['msg']['late_come_notification']} (Статус: {statues[0]})"
     but2_msg = f"{config['msg']['latecomer_came_notification']} (Статус: {statues[1]})"
-    but3_msg = f"{config['msg']['early_leave_notification']} (Статус: {statues[2]})"
-    but4_msg = config['msg']['main_menu']
+    but3_msg = f"{config['msg']['comment_notification']} (Статус: {statues[2]})"
+    but4_msg = f"{config['msg']['early_leave_notification']} (Статус: {statues[3]})"
+    but5_msg = config['msg']['main_menu']
+
     # Создаем inline кнопки
     buttons = button_creators.inline_keyboard_creator([
         [[but1_msg, 'notification_button1']],
         [[but2_msg, 'notification_button2']],
         [[but3_msg, 'notification_button3']],
-        [[but4_msg, 'main_menu']]
+        [[but4_msg, 'notification_button4']],
+        [[but5_msg, 'main_menu']]
     ]
     )
 
@@ -229,7 +237,8 @@ async def on_off_menu_handler(message: types.Message):
         # В меню "Вкл/Выкл уведомление" будет 3 inline кнопки
         msg = config['msg']['on_off_menu']
 
-        # Берем 3 статуса из таблицы admin и выходя из него создадим inline кнопки. Получит лист типа: (1, 0, 1)
+        # Берем 3 статуса из таблицы admin и выходя из него создадим inline кнопки. Получит лист типа: (1, 0, 1, 0):
+        # (late_come_notification, latecomer_came_notification, comment_notification, early_leave_notification)
         admin_status = sql_handler.get_admin_notification_status(message.chat.id)
 
         # Функция on_off_menu_handler_buttons_creator создает нам кнопки
@@ -251,7 +260,7 @@ async def on_off_buttons_handler(callback_query: types.CallbackQuery):
     """
     chosen_button = callback_query.data.replace('notification_button', '')
 
-    # Получаем все 3 статуса: [0, 1, 1]
+    # Получаем все 4 статуса: [0, 1, 1, 0]
     all_notification_status = list(sql_handler.get_admin_notification_status(callback_query.from_user.id))
 
     # Если нажал на 1-кнопку: Уведом. об опоздавших
@@ -272,7 +281,7 @@ async def on_off_buttons_handler(callback_query: types.CallbackQuery):
         else:
             all_notification_status[1] = 1
 
-    # Если нажал на 3-кнопку: Уведом. о рано ушедших
+    # Если нажал на 3-кнопку: Уведом. об оставленном комментарии(геолокация)
     elif chosen_button == '3':
         # Если статус включен тогда его выключим
         if all_notification_status[2] == 1:
@@ -280,6 +289,15 @@ async def on_off_buttons_handler(callback_query: types.CallbackQuery):
         # Если выключен тогда его включим
         else:
             all_notification_status[2] = 1
+
+    # Если нажал на 4-кнопку: Уведом. о рано ушедших
+    elif chosen_button == '4':
+        # Если статус включен тогда его выключим
+        if all_notification_status[3] == 1:
+            all_notification_status[3] = 0
+        # Если выключен тогда его включим
+        else:
+            all_notification_status[3] = 1
 
     # Сохраним изменения в базе
     sql_handler.update_admin_notification_status(callback_query.from_user.id, all_notification_status)
@@ -591,6 +609,7 @@ async def chosen_term_handler(message_or_callback_query, state: FSMContext):
                 [[config['msg']['early_leaved_report_type'], 'early_leaved_report_type']],
                 [[config['msg']['missed_days_report_type'], 'missed_days_report_type']],
                 [[config['msg']['presence_time_report_type'], 'presence_time_report_type']],
+                [[config['msg']['geolocation_report_type'], 'geolocation_report_type']],
                 [[config['msg']['all_data_report_type'], 'all_data_report_type']],
                 [[config['msg']['back'], 'back'], [config['msg']['main_menu'], 'main_menu']]
             ]
@@ -1074,7 +1093,7 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
                     config['msg']['three_lines'] + '</b>'
             mesg2 = config['msg']['did_not_come']
 
-            #msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
+            # msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
             msg2 = mesg1 + '\n' + mesg3
             msg2_block_list.append(msg2)
 
@@ -1168,7 +1187,7 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
                     # Если получили in_device когда in_time пуст, значит всё в порядке
                     if i[1] == in_device:
                         in_time = i[0]
-                        #mesg2 += config['msg']['came'] + ' ' + i[0].strftime('%H:%M')
+                        # mesg2 += config['msg']['came'] + ' ' + i[0].strftime('%H:%M')
                     # Если in_time пуст но получили out_device, значит после уход опять получили уход. Приход между ними
                     # не было из-за того что рабочей не использовал faceid. В таком случае бот не будет рассчитывать это
                     # время и сотрудник потеряет время присутствии
@@ -1180,7 +1199,8 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
                     # Если получили out_device когда in_time не пуст, значит всё в порядке
                     if i[1] == out_device:
                         # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
-                        in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute, seconds=in_time.second)
+                        in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute,
+                                                           seconds=in_time.second)
                         out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
                         presence_time_delta = out_time_delta - in_time_delta
                         day_presence_time_delta += presence_time_delta
@@ -1210,7 +1230,6 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
             else:
                 time = f"{hour.lstrip('0')} час. {minute} мин."
             mesg3 = config['msg']['presence_time'] + ' ' + time
-
 
             # Если это выходной день тогда напишем: "---date---\n Выходные\n Приход: | Уход: ..."
             if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
@@ -1261,9 +1280,198 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
     )
 
 
+async def geolocation_report_type_handler(callback_query_or_message: types.message, state: FSMContext):
+    """
+    Запуститься если выбрал 6-пункт: Геолокация. Продолжение one_worker_report_handler
+    :param callback_query_or_message:
+    :param state:
+    :return:
+    """
+    try:
+        message_id = callback_query_or_message.message.message_id
+    except:
+        message_id = callback_query_or_message.message_id
+
+    # Удаляем 2 последние сообщения
+    try:
+        for i in range(2):
+            await callback_query_or_message.bot.delete_message(
+                callback_query_or_message.message.chat.id,
+                message_id - i
+            )
+    except:
+        pass
+
+    # Установим новое состояние чтобы кнопка Назад после показа отчета работал
+    await MyStates.waiting_report_page_buttons.set()
+
+    all_data = await state.get_data()
+    # Получаем информацию о выбранном пользователе: (ID, name, Who, chat_id)
+    chosen_worker = all_data['chosen_worker']
+    chosen_term = all_data['term']
+
+    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time, location), ...], где каждый элемент это отдельный день
+    worker_report_list = sql_handler.get_data_by_term(chosen_worker[0], chosen_term)
+
+    # Если за выбранный срок хоть раз опоздал или не пришел
+    if worker_report_list:
+        # Будет хранить: [(id, user_id, date, comment, time, location), ...]
+        reports_with_location = []
+
+        # Если он оставил геолокацию, тогда добавим этот report в reports_with_location
+        for report in worker_report_list:
+            if report[5]:
+                reports_with_location.append(report)
+
+        # Если опоздавший хоть раз отправил геолокацию, тогда вернем их админу
+        if reports_with_location:
+            locations_buttons_list = []
+            # Каждый цыкл создает одну inline кнопку: '12.05.2022'
+            for report in reports_with_location:
+                button_text = report[2].strftime('%d.%m.%Y')
+                callback_data = 'location_button' + str(report[0])
+                locations_buttons_list.append([[button_text, callback_data]])
+
+            locations_buttons_list.append([[config['msg']['back'], 'back'], [config['msg']['main_menu'], 'main_menu']])
+            # Создаем inline кнопки за каждый найденный report с геолокациям
+            buttons = button_creators.inline_keyboard_creator(locations_buttons_list)
+
+            msg = config['msg']['choose_one_location_report']
+
+            await callback_query_or_message.bot.send_message(
+                callback_query_or_message.from_user.id,
+                msg,
+                reply_markup=buttons
+            )
+        # Если сотрудник опоздал или не пришел но не ответил на "Оставить комментарию"
+        else:
+            msg = config['msg']['did_not_leave_comment_location']
+            # Кнопка "Назад", "Главное меню"
+            buttons = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+            await callback_query_or_message.bot.send_message(
+                callback_query_or_message.from_user.id,
+                msg,
+                reply_markup=buttons
+            )
+
+    # Если за выбранный период ни разу не опоздал и не пропустил работу
+    else:
+        msg = config['msg']['no_violation']
+        # Кнопка "Назад", "Главное меню"
+        buttons = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+        await callback_query_or_message.bot.send_message(
+            callback_query_or_message.from_user.id,
+            msg,
+            reply_markup=buttons
+        )
+
+
+async def chosen_geolocation_day_handler(callback_query: types.CallbackQuery, state: FSMContext):
+    """
+    Запуститься после того как админ выбрал один из inline кнопок который показал geolocation_report_type_handler.
+    :param callback_query:
+    :param state:
+    :return: Так как админ выбрал нужный день, мы отправим ему геолокацию и его описание
+    """
+    # Удаляем последнее сообщение
+    try:
+        await callback_query.bot.delete_message(callback_query.from_user.id, callback_query.message.message_id)
+    except:
+        pass
+
+    # Меняем state чтобы с помощью reply кнопки "Назад" он мог вернутся назад (в список доступных геолокаций)
+    await MyStates.waiting_for_location.set()
+
+    report_id = callback_query.data.replace('location_button', '')
+
+    # Получаем информацию выбранного report: (id, user_id, date, comment, time, location)
+    report = sql_handler.get_report_by_id(report_id)
+
+    # Хранит [latitude, longitude]
+    location = report[5].split(',')
+    name = sql_handler.get_user_name(int(report[1]))
+    comment = report[3]
+
+    msg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(report[2].strftime('%d.%m.%Y')) + ' ' + \
+           config['msg']['three_lines'] + '</b>'
+    msg2 = config['msg']['you_chose'] + ' ' + name
+
+    user_in_check = sql_handler.get_user_in_history(report[1], report[2])
+    # Если user_in_check не равно False, значит он пришил. Значит он опоздал
+    if user_in_check:
+        msg3 = config['msg']['violation'] + ' ' + config['msg']['late']
+    else:
+        msg3 = config['msg']['violation'] + ' ' + config['msg']['missed']
+    msg4 = config['msg']['reason'] + ' ' + comment
+
+    try:
+        # С помощью модуля geopy используя координати определяем адрес
+        location_text = geolocator.reverse(f"{location[0]}, {location[1]}")
+        # Удаляем из полученного адреса индекс почти и страну(Узбекистан)
+        location_list = location_text.address.split(', ')
+        location_text = ', '.join(location_list[:-2])
+        location_url =  f"https://www.google.com/maps?q={location[0]},{location[1]}&ll={location[0]},{location[1]}&z=16"
+        msg5 = f"\n{config['msg']['address']} <a href='{location_url}'>{location_text}</a>"
+    except:
+        # Если с geopy будет какие-то проблемы, тогда адрес не отправим
+        msg5 = ''
+
+    msg = msg1 + '\n' + msg2 + '\n' + msg3 + '\n' + msg4 + msg5
+    buttons = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
+
+    # Отправим сперва локацию
+    await callback_query.bot.send_location(
+        callback_query.from_user.id,
+        latitude=location[0],
+        longitude=location[1]
+    )
+
+    try:
+        # А теперь отправим информацию (
+        await callback_query.bot.send_message(
+            callback_query.from_user.id,
+            msg,
+            reply_markup=buttons,
+            # Если вдруг не сможет найти такой id (тоесть id отправленного до него геолокацию), то отправим сообщение без reply_to_message_id
+            reply_to_message_id=callback_query.message.message_id+1,
+            disable_web_page_preview=True
+        )
+    except:
+        await callback_query.bot.send_message(
+            callback_query.from_user.id,
+            msg,
+            reply_markup=buttons,
+            disable_web_page_preview=True
+        )
+
+
+async def geolocation_day_page_buttons(message: types.Message, state: FSMContext):
+    """
+    Эта функция нужна чтобы того как показал выбранную геолокацию мог работать кнопка Назад
+    :param message:
+    :param state:
+    :return:
+    """
+    # Удаляем 3 последние сообщения
+    try:
+        for i in range(3):
+            await message.bot.delete_message(message.chat.id, message.message_id - i)
+    except:
+        pass
+
+    # Если нажал на кнопку Назад то вернем список всех доступных геолокаций
+    if message.text == config['msg']['back']:
+        await geolocation_report_type_handler(message, state)
+    # Если нажал на главное меню, то удалим последные 2 сообщения и вернем главное меню
+    elif message.text == config['msg']['main_menu']:
+        await main_menu(message, state)
+
+
 async def all_data_report_type_handler(callback_query: types.CallbackQuery, state: FSMContext):
     """
-    Запуститься если выбрал 6-пункт: Записи всех событий. Продолжение one_worker_report_handler
+    Запуститься если выбрал 7-пункт: Записи всех событий. Продолжение one_worker_report_handler
     :param callback_query:
     :param state:
     :return:
@@ -1296,7 +1504,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
         # Количество дней который не пришел
         missed_days = 0
 
-        # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time), ...], где каждый элемент это отдельный день
+        # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time, location), ...], где каждый элемент это отдельный день
         worker_report_list = sql_handler.get_data_by_term(chosen_worker[0], chosen_term)
         # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time), ...}
         worker_report_dict = {}
@@ -1354,7 +1562,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                 # Все что внизу пропустим
                 continue
 
-            #if day in worker_report_dict:
+            # if day in worker_report_dict:
             # Так как in_out_time == False, значит он не пришел
             if not in_out_time:
                 mesg1 = config['msg']['did_not_come']
@@ -1376,7 +1584,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                                                      minutes=int(config['time']['start_minute']))
                 came_time = worker_report_dict[day][4]
                 came_time_delta = datetime.timedelta(hours=came_time.hour, minutes=came_time.minute,
-                                                            seconds=came_time.second)
+                                                     seconds=came_time.second)
                 late_time_in_seconds = came_time_delta - beginning_delta
                 late_time = (datetime.datetime.min + late_time_in_seconds).time()
 
@@ -2141,6 +2349,13 @@ def register_handlers(dp: Dispatcher):
         state=MyStates.waiting_report_page_buttons
     )
 
+    # Нужен только для того чтобы работал inline кнопка "Назад" после того как бот ответил на кнопку Геолокация.
+    dp.register_callback_query_handler(
+        chosen_term_handler,
+        lambda c: c.data == 'back',
+        state=MyStates.waiting_report_page_buttons
+    )
+
     # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет(всех пользователей) за выбранный период
     dp.register_message_handler(
         all_workers_report_page_buttons,
@@ -2243,6 +2458,27 @@ def register_handlers(dp: Dispatcher):
     )
 
     # Если выбрал 📋 Отчет одного сотрудника  ->  6 пункт
+    dp.register_callback_query_handler(
+        geolocation_report_type_handler,
+        lambda c: c.data == 'geolocation_report_type',
+        state=MyStates.waiting_for_report_type
+    )
+
+    # Если выбрал "📋 Отчет одного сотрудника  ->  6 пункт  -> Какую-то геолокацию из списка"
+    dp.register_callback_query_handler(
+        chosen_geolocation_day_handler,
+        lambda c: c.data.startswith('location_button'),
+        state=MyStates.waiting_report_page_buttons
+    )
+
+    # После просмотра выбранную геолокацую, чтобы кнопка назад мог работать и вернуть опять список геолокаций
+    dp.register_message_handler(
+        geolocation_day_page_buttons,
+        content_types=['text'],
+        state=MyStates.waiting_for_location
+    )
+
+    # Если выбрал 📋 Отчет одного сотрудника  ->  7 пункт
     dp.register_callback_query_handler(
         all_data_report_type_handler,
         lambda c: c.data == 'all_data_report_type',
