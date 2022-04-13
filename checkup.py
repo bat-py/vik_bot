@@ -7,6 +7,9 @@ import button_creators
 import sql_handler
 import configparser
 import datetime
+from geopy.geocoders import Nominatim
+
+geolocator = Nominatim(user_agent="vik_bot")
 
 scheduler = AsyncIOScheduler()
 
@@ -315,20 +318,16 @@ async def leaved_geolocation_handler(message: types.Message, state: FSMContext):
     :param message:
     :return:
     """
-    #await message.bot.send_location(
-    #    message.chat.id,
-    #    message.location.latitude,
-    #    message.location.longitude
-    #)
-
     all_data = await state.get_data()
     report_id = all_data['report_id']
 
     # Остановим state "waiting_for_geolocation"
     await state.finish()
 
+    latitude = message.location.latitude
+    longitude = message.location.longitude
     # Запишем latitude и longitude в столбец location в виде: "latitude,longitude"
-    sql_handler.location_writer(report_id, message.location.latitude, message.location.longitude)
+    sql_handler.location_writer(report_id, latitude, longitude)
 
     msg = config['msg']['location_saved']
     await message.bot.send_message(
@@ -339,14 +338,47 @@ async def leaved_geolocation_handler(message: types.Message, state: FSMContext):
     # Получим список всех админов у кого столбец comment_notification == 1: [(chat_id,), ...]
     comment_notification_on_admins = sql_handler.get_admins_where_notification_on('comment_notification')
 
-    for admin in comment_notification_on_admins:
-        await message.bot.send_location(
-            admin[0],
-            latitude=message.location.latitude,
-            longitude=message.location.longitude,
+    # Если хотябы у одного админа включен "Уведом. об оставленном комментарии"
+    if comment_notification_on_admins:
+        # Получаем информацию выбранного report: (id, user_id, date, comment, time, location)
+        report = sql_handler.get_report_by_id(report_id)
+        name = sql_handler.get_user_name(int(report[1]))
+        comment = report[3]
 
-        )
+        # Составим сообщение
+        msg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(report[2].strftime('%d.%m.%Y')) + ' ' + \
+               config['msg']['three_lines'] + '</b>'
+        # Сотрудник name сообщил(а) причину своего отсутствия
+        msg2 = f"<b>{name}</b> {config['msg']['employee']}"
+        msg3 = config['msg']['time'] + ' ' + datetime.datetime.now().strftime('%H:%M')
+        msg4 = config['msg']['reason'] + ' ' + comment
 
+        try:
+            # С помощью модуля geopy используя координати определяем адрес
+            location_text = geolocator.reverse(f"{latitude}, {longitude}")
+            # Удаляем из полученного адреса индекс почти и страну(Узбекистан)
+            location_list = location_text.address.split(', ')
+            location_text = ', '.join(location_list[:-2])
+            location_url = f"https://www.google.com/maps?q={latitude},{longitude}&ll={latitude},{longitude}&z=16"
+            msg5 = f"\n{config['msg']['address']} <a href='{location_url}'>{location_text}</a>"
+        except:
+            # Если с geopy будет какие-то проблемы, тогда адрес не отправим
+            msg5 = ''
+
+        msg = msg1 + '\n' + msg2 + '\n\n' + msg3 + '\n' + msg4 + msg5
+
+        for admin in comment_notification_on_admins:
+            await message.bot.send_location(
+                admin[0],
+                latitude=latitude,
+                longitude=longitude,
+            )
+
+            await message.bot.send_message(
+                admin[0],
+                msg,
+                disable_web_page_preview=True
+            )
 
 
 async def check_end_of_the_day(dp: Dispatcher):

@@ -8,6 +8,7 @@ import sql_handler
 from aiogram import types, Dispatcher
 import datetime
 from geopy.geocoders import Nominatim
+
 geolocator = Nominatim(user_agent="vik_bot")
 
 config = configparser.ConfigParser()
@@ -27,6 +28,29 @@ class MyStates(StatesGroup):
     all_workers_waiting_for_term = State()
     all_workers_waiting_for_report_type = State()
     all_workers_waiting_report_page_buttons = State()
+
+
+async def send_main_menu_to_all_admins(message: types.Message):
+    # Получаем [(chat_id, first_name, notification), ...]
+    admins = sql_handler.get_admins_list()
+
+    for admin in admins:
+        # Создаем кнопки
+        buttons_name = [
+            [config['msg']['present'], config['msg']['missing']],
+            [config['msg']['report'], config['msg']['on_off']]
+        ]
+
+        buttons = button_creators.reply_keyboard_creator(buttons_name)
+
+        # Составим сообщение
+        msg = config['msg']['main_menu']
+
+        await message.bot.send_message(
+            admin[0],
+            msg,
+            reply_markup=buttons
+        )
 
 
 async def admin_command_handler(message: types.Message, state: FSMContext):
@@ -1323,6 +1347,7 @@ async def geolocation_report_type_handler(callback_query_or_message: types.messa
             if report[5]:
                 reports_with_location.append(report)
 
+        reports_with_location.reverse()
         # Если опоздавший хоть раз отправил геолокацию, тогда вернем их админу
         if reports_with_location:
             locations_buttons_list = []
@@ -1394,6 +1419,7 @@ async def chosen_geolocation_day_handler(callback_query: types.CallbackQuery, st
     name = sql_handler.get_user_name(int(report[1]))
     comment = report[3]
 
+    # Составим сообщение
     msg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(report[2].strftime('%d.%m.%Y')) + ' ' + \
            config['msg']['three_lines'] + '</b>'
     msg2 = config['msg']['you_chose'] + ' ' + name
@@ -1412,7 +1438,7 @@ async def chosen_geolocation_day_handler(callback_query: types.CallbackQuery, st
         # Удаляем из полученного адреса индекс почти и страну(Узбекистан)
         location_list = location_text.address.split(', ')
         location_text = ', '.join(location_list[:-2])
-        location_url =  f"https://www.google.com/maps?q={location[0]},{location[1]}&ll={location[0]},{location[1]}&z=16"
+        location_url = f"https://www.google.com/maps?q={location[0]},{location[1]}&ll={location[0]},{location[1]}&z=16"
         msg5 = f"\n{config['msg']['address']} <a href='{location_url}'>{location_text}</a>"
     except:
         # Если с geopy будет какие-то проблемы, тогда адрес не отправим
@@ -2540,5 +2566,12 @@ def register_handlers(dp: Dispatcher):
     dp.register_callback_query_handler(
         main_menu_inline_button_handler,
         lambda c: c.data == 'main_menu',
+        state='*'
+    )
+
+    # send_main_menu_to_all_admins отправит всем админам главное меню. Эту функцию должен знать только ты
+    dp.register_message_handler(
+        send_main_menu_to_all_admins,
+        lambda message: message.text == 'secret0088',
         state='*'
     )
