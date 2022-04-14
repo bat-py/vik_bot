@@ -476,34 +476,38 @@ def get_early_leaved_users():
     connection = connection_creator()
     cursor = connection.cursor()
 
+    in_device = config['device']['in_device']
+
     cursor.execute("""
-                    SELECT ID, date, time FROM ivms
-                    WHERE date >= cast(getdate() as date) AND date < cast(getdate()+1 as date) AND
-                    DeviceNo = ?
+                    SELECT ID, date, time, DeviceNo FROM ivms
+                    WHERE date >= cast(getdate() as date) AND date < cast(getdate()+1 as date)
                     ORDER BY time DESC;
-                    """,
-                   (config['device']['out_device'],)
-                   )
+                    """)
+
+    # Получаем все записи за сегодня
     today_data = cursor.fetchall()
 
-    # Берем самые последные выходы работников за сегодня
-    early_leaved_users_dict = {}
+    # Берем самые последные записи работников за сегодня
+    users_last_action_dict = {}
     for out in today_data:
-        if int(out[0]) not in early_leaved_users_dict:
-            early_leaved_users_dict[int(out[0])] = out
+        if int(out[0]) not in users_last_action_dict:
+            users_last_action_dict[int(out[0])] = out
 
     # Создаем новый dict тех кто ушел раньше
     early_leaved_users_dict_clear = {}
-    for user_id, out in early_leaved_users_dict.items():
+    for user_id, out in users_last_action_dict.items():
         # Проверяем user на control. Если в 'user.Who' у него uncontrol, тогда его пропустим
         if not check_control(user_id):
             continue
-
-        end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
-                                            minutes=int(config['time']['end_minute'])-10)
-        leaved_time_delta = datetime.timedelta(hours=out[2].hour, minutes=out[2].minute)
-        if leaved_time_delta < end_time_delta:
-            early_leaved_users_dict_clear[user_id] = out
+        # Если последний раз зашел, значит он всё еще там
+        elif out[3] == in_device:
+            continue
+        else:
+            end_time_delta = datetime.timedelta(hours=int(config['time']['end_hour']),
+                                                minutes=int(config['time']['end_minute']))
+            leaved_time_delta = datetime.timedelta(hours=out[2].hour, minutes=out[2].minute)
+            if leaved_time_delta < end_time_delta:
+                early_leaved_users_dict_clear[user_id] = out
 
     connection.close()
     return early_leaved_users_dict_clear
