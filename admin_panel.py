@@ -30,6 +30,26 @@ class MyStates(StatesGroup):
     all_workers_waiting_report_page_buttons = State()
 
 
+def get_location_address(latitude, longitude):
+    """
+    Передаем коориданты
+    :param latitude:
+    :param longitude:
+    :return: ["Адрес координат(..., Улица, Город)", "Ссылку на google maps"] или False если проблемы с geopy
+    """
+    try:
+        # С помощью модуля geopy используя координати определяем адрес
+        location_text = geolocator.reverse(f"{latitude}, {longitude}")
+        # Удаляем из полученного адреса индекс почти и страну(Узбекистан)
+        location_list = location_text.address.split(', ')
+        location_text = ', '.join(location_list[:-2])
+        location_url = f"https://www.google.com/maps?q={latitude},{longitude}&ll={latitude},{longitude}&z=16"
+
+        return location_text, location_url
+    except:
+        return False
+
+
 async def send_main_menu_to_all_admins(message: types.Message):
     # Получаем [(chat_id, first_name, notification), ...]
     admins = sql_handler.get_admins_list()
@@ -828,7 +848,7 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
     # Суммарное время опозданий
     total_late_hours = datetime.timedelta()
 
-    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time), ...], где каждый элемент это отдельный день
+    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time, location), ...], где каждый элемент это отдельный день
     worker_report_list = sql_handler.get_data_by_term(chosen_worker[0], chosen_term)
     # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time), ...}
     worker_report_dict = {}
@@ -848,7 +868,7 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
             # Получаем время прихода и ухода указанной даты:  (in_time, out_time) или (in_time, False) или False
             in_out_time = sql_handler.get_user_in_out_history(chosen_worker[0], day)
 
-            # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time)
+            # Если он пришел с опозданием, составим об этом сообщение. worker_report_dict[day] хранит (id, user_id, date, comment, time, location)
             if worker_report_dict[day][4]:
                 mesg1 = config['msg']['came'] + ' ' + str(worker_report_dict[day][4].strftime("%H:%M"))
 
@@ -879,6 +899,17 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
                 else:
                     mesg4 = config['msg']['reason']
 
+                # Если отправил геолокацию (хотя если он оставил коментарию значит и геолокацию тоже оставил
+                if worker_report_dict[day][5]:
+                    # Хранит [latitude, longitude]
+                    location = worker_report_dict[day][5].split(',')
+
+                    # Получим ["Адрес координат(..., Улица, Город)", "Ссылку на google maps"] или False если проблемы с geopy
+                    location_text_url = get_location_address(*location)
+                    msg5 = f"\n{config['msg']['address']} <a href='{location_text_url[1]}'>{location_text_url[0]}</a>"
+                else:
+                    msg5 = ''
+
                 # Если в in_out_time хранится: False
                 if not in_out_time:
                     mesg2 = config['msg']['leaved']
@@ -901,7 +932,7 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
                 msg2_1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
                          config['msg']['three_lines'] + '</b>'
                 # Хранит в себе "Приход: | Уход:\n Опоздал на:\n Причина:"
-                msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4
+                msg2_2 = mesg1 + '  <b>|</b>  ' + mesg2 + '\n' + mesg3 + '\n' + mesg4 + msg5
                 msg2 = msg2_1 + '\n' + msg2_2
 
                 msg2_block_list.append(msg2)
@@ -942,7 +973,8 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
     await callback_query.bot.send_message(
         callback_query.from_user.id,
         msg,
-        reply_markup=button
+        reply_markup=button,
+        disable_web_page_preview=True
     )
 
 
@@ -1079,9 +1111,10 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
     # Суммарное количества дней который не пришел
     missed_days = 0
 
-    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:  [(id, user_id, date, comment, time), ...], где каждый элемент это отдельный день
+    # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:
+    # [(id, user_id, date, comment, time, location), ...], где каждый элемент это отдельный день
     worker_report_list = sql_handler.get_data_by_term(chosen_worker[0], chosen_term)
-    # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time), ...}
+    # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time, location), ...}
     worker_report_dict = {}
     for day in worker_report_list:
         worker_report_dict[day[2]] = day
@@ -1112,13 +1145,24 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
             else:
                 mesg3 = config['msg']['reason']
 
+            # Если отправил геолокацию (хотя если он оставил коментарию значит и геолокацию тоже оставил
+            if worker_report_dict[day][5]:
+                # Хранит [latitude, longitude]
+                location = worker_report_dict[day][5].split(',')
+
+                # Получим ["Адрес координат(..., Улица, Город)", "Ссылку на google maps"] или False если проблемы с geopy
+                location_text_url = get_location_address(*location)
+                msg4 = f"\n{config['msg']['address']} <a href='{location_text_url[1]}'>{location_text_url[0]}</a>"
+            else:
+                msg4 = ''
+
             # Хранит: "--- 29.03.2022 ---"
             mesg1 = '<b>📍 ' + config['msg']['three_lines'] + ' ' + str(day.strftime('%d.%m.%Y')) + ' ' + \
                     config['msg']['three_lines'] + '</b>'
             mesg2 = config['msg']['did_not_come']
 
             # msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
-            msg2 = mesg1 + '\n' + mesg3
+            msg2 = mesg1 + '\n' + mesg3 + msg4
             msg2_block_list.append(msg2)
 
     # Если хоть раз не пришел
@@ -1137,7 +1181,8 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
     await callback_query.bot.send_message(
         callback_query.from_user.id,
         msg,
-        reply_markup=button
+        reply_markup=button,
+        disable_web_page_preview=True
     )
 
 
@@ -1432,16 +1477,13 @@ async def chosen_geolocation_day_handler(callback_query: types.CallbackQuery, st
         msg3 = config['msg']['violation'] + ' ' + config['msg']['missed']
     msg4 = config['msg']['reason'] + ' ' + comment
 
-    try:
-        # С помощью модуля geopy используя координати определяем адрес
-        location_text = geolocator.reverse(f"{location[0]}, {location[1]}")
-        # Удаляем из полученного адреса индекс почти и страну(Узбекистан)
-        location_list = location_text.address.split(', ')
-        location_text = ', '.join(location_list[:-2])
-        location_url = f"https://www.google.com/maps?q={location[0]},{location[1]}&ll={location[0]},{location[1]}&z=16"
-        msg5 = f"\n{config['msg']['address']} <a href='{location_url}'>{location_text}</a>"
-    except:
-        # Если с geopy будет какие-то проблемы, тогда адрес не отправим
+    # Получим ["Адрес координат(..., Улица, Город)", "Ссылку на google maps"] или False если проблемы с geopy
+    location_text_url = get_location_address(*location)
+
+    # Если location_text_url успешно вернул адрес и ссылку на google maps:
+    if location_text_url:
+        msg5 = f"\n{config['msg']['address']} <a href='{location_text_url[1]}'>{location_text_url[0]}</a>"
+    else:
         msg5 = ''
 
     msg = msg1 + '\n' + msg2 + '\n' + msg3 + '\n' + msg4 + msg5

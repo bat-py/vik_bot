@@ -103,8 +103,11 @@ def get_todays_logins():
     cursor = connection.cursor()
 
     # Получаем сегодняшные записи
-    cursor.execute(
-        'SELECT DISTINCT ID FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) ORDER BY ID;')
+    cursor.execute("""
+        SELECT DISTINCT ID
+        FROM ivms WHERE date >= cast(getdate() as date) and date < cast(getdate()+1 as date) 
+        ORDER BY ID;
+        """)
     logins = cursor.fetchall()
 
     connection.close()
@@ -195,7 +198,7 @@ def get_admins_where_notification_on(type_of_notification):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    #cursor.execute('SELECT * FROM "admins" WHERE {} = 1;'.format(type_of_notification))
+    # cursor.execute('SELECT * FROM "admins" WHERE {} = 1;'.format(type_of_notification))
     cursor.execute('SELECT chat_id FROM "admins" WHERE {} = 1;'.format(type_of_notification))
 
     admins_list = cursor.fetchall()
@@ -686,7 +689,6 @@ def get_all_in_outs_one_day(user_id, date):
     all_in_outs_one_day = cursor.fetchall()
 
     return all_in_outs_one_day
-
 
 
 def test():
