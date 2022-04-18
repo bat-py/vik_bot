@@ -2313,15 +2313,22 @@ async def excel_report_type_handler(callback_query_or_message: types.CallbackQue
         )
 
 
-def excel_creator(term):
+async def excel_file_sended(message: types.Message, state: FSMContext):
     """
-    Вернет отчет за выбранный период в виде excel файла
-    :param term:
+    Чтобы работали кнопки назад и главное меню после получения excel файла
     :return:
     """
-    excel_file = excel_handler.excel_report_creator(term)
-    return False
+    await state.finish()
+    try:
+        for i in range(3):
+            await message.bot.delete_message(message.chat.id, message.message_id - i)
+    except:
+        pass
 
+    if message.text == config['msg']['back']:
+        await report_menu(message, state)
+    elif message.text == config['msg']['main_menu']:
+        await main_menu(message, state)
 
 
 ###

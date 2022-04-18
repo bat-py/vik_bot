@@ -295,8 +295,8 @@ def excel_report_creator_first_type(term):
     all_workers = sql_handler.get_all_workers()
 
     # В excel отчете у каждого будет свой отдельный блок.
-    for worker in [[31, 'rixsimov']]:
-    #for worker in all_workers:
+    #for worker in [[31, 'rixsimov']]:
+    for worker in all_workers:
         # Получаем все данные сотрудника за выбранный срок
         worker_report = WorkerReport(worker[0], chosen_days, chosen_days_str)
 
