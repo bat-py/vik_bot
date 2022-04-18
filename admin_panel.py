@@ -2318,7 +2318,6 @@ async def excel_file_sended(message: types.Message, state: FSMContext):
     Чтобы работали кнопки назад и главное меню после получения excel файла
     :return:
     """
-    await state.finish()
     try:
         for i in range(3):
             await message.bot.delete_message(message.chat.id, message.message_id - i)
@@ -2671,6 +2670,11 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data == 'excel_report'
     )
 
+    dp.message_handler(
+        excel_file_sended,
+        content_types=['text'],
+        state=MyStates.excel_file_sended
+    )
 
     dp.register_message_handler(
         main_menu,
