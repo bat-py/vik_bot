@@ -7,6 +7,7 @@ import button_creators
 import sql_handler
 from aiogram import types, Dispatcher
 import datetime
+import excel_handler
 from geopy.geocoders import Nominatim
 
 geolocator = Nominatim(user_agent="vik_bot")
@@ -29,7 +30,6 @@ class MyStates(StatesGroup):
     all_workers_waiting_for_report_type = State()
     all_workers_waiting_report_page_buttons = State()
 
-    excel_waiting_for_term = State()
     excel_file_sended = State()
 
 
@@ -2271,12 +2271,12 @@ async def all_workers_report_page_buttons(message: types.Message, state: FSMCont
         await main_menu(message, state)
 
 
-async def excel_report_type_handler(callback_query_or_message, state: FSMContext):
+async def excel_report_type_handler(callback_query_or_message: types.CallbackQuery, state: FSMContext):
     """
     Запустится после того как админ нажал на кнопку "📊 Отчет в excel" excel_report или вернулся из следующего меню
-    :param callback_query:
+    :param callback_query_or_message:
     :param state:
-    :return: Сколько дней хотите посмотреть (1-30 дней):
+    :return: Excel файл с отчетом 30 дней
     """
     try:
         message_id = callback_query_or_message.message.message_id
@@ -2292,94 +2292,25 @@ async def excel_report_type_handler(callback_query_or_message, state: FSMContext
     except:
         pass
 
-    # Меняем статус на waiting_for_term
-    await MyStates.excel_waiting_for_term.set()
+    # Меняем статус на excel_file_sended, чтобы могли работать кнопки назад и главное меню
+    await MyStates.excel_file_sended.set()
 
     # Создадим кнопку "Главное меню"
     button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
 
-    # Составим сообщения: Сколько дней хотите посмотреть (1-30 дней):
-    msg = config['msg']['term']
-
+    # Сперва отправим "Отчет за месяц:", потом excel файл
     await callback_query_or_message.bot.send_message(
         callback_query_or_message.from_user.id,
-        msg,
+        config['msg']['excel_month_report'],
         reply_markup=button
     )
 
-
-async def excel_chosen_term_handler(message: types.Message, state: FSMContext):
-    """
-    Запуститься после того как пользователь в меню "📊 Отчет в excel" выбрал сколько дней отчета надо показать(1-31).
-    :param message:
-    :param state:
-    :return:
-    """
-    all_data = await state.get_data()
-    str_numbers = [str(i) for i in range(1, 31)]
-
-    # Если нажал на кнопку Главное меню
-    if message.text == config['msg']['main_menu']:
-        # Удаляем 2 последние сообщения
-        try:
-            for i in range(3):
-                await message.bot.delete_message(message.chat.id, message.message_id - i)
-        except:
-            pass
-
-        await main_menu(message, state)
-
-    # Если отправил число от 1 до 30 или если вернулся назад из следующего меню
-    elif message.text.strip() in str_numbers:
-        # Сохраним выбранный диапазон
-        # await state.update_data(term=message.text.strip())
-
-        # Меняем статус на excel_file_sended
-        await MyStates.excel_file_sended.set()
-
-        # Создаем отчет в виде excel файла
-        excel_file = excel_creator(message.text.strip())
-
-        # Удаляем 2 последние сообщения
-        try:
-            for i in range(2):
-                await message.bot.delete_message(
-                    message.chat.id,
-                    message.message_id - i
-                )
-        except:
-            pass
-
-    # Если нажал на кнопку Назад вместо количество дней, тогда вернем report_menu
-    elif message.text == config['msg']['back']:
-        # На всякие случаи аннулируем значение term
-        # await state.update_data(term=None)
-
-        # Удаляем 2 последние сообщения
-        try:
-            for i in range(2):
-                await message.bot.delete_message(
-                    message.chat.id,
-                    message.message_id - i
-                )
-        except:
-            pass
-
-        await report_menu(message, state)
-
-    # Если отправил неправильное число или текст
-    else:
-        # Создадим кнопку "Главное меню"
-        button = button_creators.reply_keyboard_creator([[config['msg']['back'], config['msg']['main_menu']]])
-        # Удаляем 2 последние сообщения
-        try:
-            for i in range(2):
-                await message.bot.delete_message(message.chat.id, message.message_id - i)
-        except:
-            pass
-
-        msg = config['msg']['wrong_term']
-        await message.answer(msg, reply_markup=button)
+    with open('excel_files/report1.xlsx', 'rb') as excel_file:
+        # Отправим excel файл
+        await callback_query_or_message.bot.send_document(
+            callback_query_or_message.from_user.id,
+            excel_file
+        )
 
 
 def excel_creator(term):
@@ -2388,185 +2319,8 @@ def excel_creator(term):
     :param term:
     :return:
     """
-    # Получаем список всех рабочих(who=control): [(ID, name, Who, chat_id), ...]
-    all_workers = sql_handler.get_all_workers()
-
-    # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
-    chosen_days = []
-    for i in range(int(term)):
-        day = datetime.datetime.now().date() - datetime.timedelta(days=i)
-        chosen_days.append(day)
-    chosen_days.reverse()
-
-    # В excel отчете у каждого будет свой отдельный блок.
-    for worker in all_workers:
-        pass
+    excel_file = excel_handler.excel_report_creator(term)
     return False
-
-
-class WorkerReport:
-    def __init__(self, worker_id, term):
-        self.term = term
-        self.worker_id = worker_id
-        self.worker_name = self.get_name()
-
-        # Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
-        self.chosen_days = self.get_chosen_days()
-
-        # in_history или out_history может хранит библиотеку где ключ это день(date элемент): {date : in_time, ..}
-        self.in_history, self.out_history = self.get_in_out_history()
-
-        # Получает dict объект с записями тех дней который опоздал: {date: time_of_late}.
-        self.late_history = self.get_late_history()
-
-        # Получает dict объект с записями тех дней который ушел раньше: {date: early_leaved_time}.
-        self.early_leaved_history = self.get_early_leaved_history()
-
-        # Получает dict объект с записями тех дней который не пришел: {date: True}.
-        self.missed_days_history = self.get_missed_days_history()
-
-        # comments может хранить комментарий или если сотрудник не оставил его тогда 'empty': {date: commnet, ..} или {date: 'empty', ..}
-        # locations может хранить геолокацию или если сотрудник не оставил его тогда 'empty': {date: location, ..} или {date: 'empty', ..}
-        self.comments, self.locations = self.get_comment_and_locations()
-
-    def get_name(self):
-        """
-        :return: По данному id возвращает имя сотрудника
-        """
-        return sql_handler.get_user_name(self.worker_id)
-
-    def get_chosen_days(self):
-        """
-        Составим список дней с объектами date() указанного периода для цикла: [..., datetime.datetime.now().date()]
-        """
-        chosen_days = []
-        for i in range(int(self.term)):
-            day = datetime.datetime.now().date() - datetime.timedelta(days=i)
-            chosen_days.append(day)
-        chosen_days.reverse()
-
-        return chosen_days
-
-    def get_in_out_history(self):
-        # Хранит библиотеку где ключ это день(date элемент): { date : in_time, ...}
-        # Каждый объект может хранит: {in: date} или {in: False}
-        in_history = {}
-        # Хранит библиотеку где ключ это день(date элемент): { date : out: out_time, ...}
-        out_history = {}
-
-        for day in self.chosen_days:
-            # Может возвращать 3 варианта:
-            #     Когда нету входа: False
-            #     Когда есть входа в выхода нет: (in_time, False)
-            #     Когда есть вход и выход: (in_time, out_time)
-            in_out_time = sql_handler.get_user_in_out_history(self.worker_id, day)
-
-            if in_out_time:
-                in_history[day] = in_out_time[0]
-                out_history[day] = in_out_time[1]
-
-        return in_history, out_history
-
-    def get_late_history(self):
-        """
-        :return: Те дни который сотрудник опоздал: {date: late_time}
-        """
-        late_history = {}
-
-        start_time_delta = datetime.timedelta(
-            hours=int(config['time']['start_hour']),
-            minutes=int(config['time']['start_minute']) + 10
-        )
-
-        for date, in_time in self.in_history.items():
-            in_time_delta = datetime.timedelta(
-                hours=in_time.hour,
-                minutes=in_time.minute,
-                seconds=in_time.second
-            )
-
-            # Если пришел после 9:10, тогда добавим этот день как опоздавший
-            if in_time_delta > start_time_delta:
-                # Определим на сколько он опоздал
-                late_time = datetime.datetime.min + (in_time_delta-start_time_delta)
-
-                # Добавим в библиотеку late_history: {date: late_time}
-                late_history[date] = late_time
-
-        return late_history
-
-    def get_early_leaved_history(self):
-        """
-        :return: Те дни который сотрудник ушел раньше времени: {date: late_time}
-        """
-        early_leaved_history = {}
-
-        end_time_delta = datetime.timedelta(
-            hours=int(config['time']['end_hour']),
-            minutes=int(config['time']['end_minute'])
-        )
-
-        for date, out_time in self.out_history.items():
-            out_time_delta = datetime.timedelta(
-                hours=out_time.hour,
-                minutes=out_time.minute,
-                seconds=out_time.second
-            )
-
-            # Если ушел раньше времени
-            if out_time_delta < end_time_delta:
-                # Определим на сколько он ушел раньше времени
-                early_leaved_time = datetime.datetime.min + (end_time_delta-out_time_delta)
-
-                # Добавим в библиотеку early_leaved_history: {date: late_time}
-                early_leaved_history[date] = early_leaved_time
-
-        return early_leaved_history
-
-    def get_missed_days_history(self):
-        missed_days = {}
-
-        for date in self.chosen_days:
-            if date not in self.in_history:
-                missed_days[date] = True
-
-        return missed_days
-
-    def get_comment_and_locations(self):
-        # Может хранить комментарий или если сотрудник не оставил его тогда 'empty': {date: commnet, ..} или {date: 'empty', ..}
-        comments = {}
-        # Может хранить геолокацию или если сотрудник не оставил его тогда 'empty': {date: location, ..} или {date: 'empty', ..}
-        locations = {}
-
-        # Тут будет те дни, где сотрудники должны были оставить комментарии. Хранятся данные как: {date: time_of_late}
-        violation_days = {**self.late_history, **self.missed_days_history}.keys()
-
-        # Получаем из таблицы "report" все информации об опоздании по id этого человека за выбранный срок:
-        # [(id, user_id, date, comment, time, location), ...], где каждый элемент это отдельный день
-        worker_report_list = sql_handler.get_data_by_term(self.worker_id, self.term)
-        # Из worker_report_list создадим библиотеку: {date: (id, user_id, date, comment, time), ...}
-        worker_report_dict = {}
-        for day in worker_report_list:
-            worker_report_dict[day[2]] = day
-
-        for date in violation_days:
-            report = worker_report_dict.get(date)
-
-            # Если нашелся такой день в worker_report_dict (хотя так должно быть).
-            # Если не нашелся этот день в таблице report, значит бот в тот день не работал
-            if report:
-                # Может этот день нашелся в worker_report_dict, но возможно сотрудник не оставил комментарий или геолок.
-                if report[3]:
-                    comments[date] = report[3]
-                else:
-                    comments[date] = 'empty'
-
-                if report[5]:
-                    locations[date] = report[5]
-                else:
-                    locations[date] = 'empty'
-
-        return comments, locations
 
 
 
@@ -2910,11 +2664,6 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data == 'excel_report'
     )
 
-    dp.register_message_handler(
-        excel_chosen_term_handler,
-        content_types=['text'],
-        state=MyStates.excel_waiting_for_term
-    )
 
     dp.register_message_handler(
         main_menu,

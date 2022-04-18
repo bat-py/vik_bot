@@ -207,9 +207,6 @@ def get_admins_where_notification_on(type_of_notification):
     return admins_list
 
 
-print(get_admins_where_notification_on('comment_notification'))
-
-
 def check_admin_exist(chat_id):
     """
     Проверяет существует ли этот пользователь в списке админов
@@ -329,6 +326,18 @@ def get_user_info_by_id(user_id):
     return user_info
 
 
+def rand_id_creator(leng):
+    symbols = []
+    symbols.extend(list(map(chr, range(ord('A'), ord('Z') + 1))))
+    symbols.extend(list(map(chr, range(ord('a'), ord('z') + 1))))
+    symbols.extend(list(str(i) for i in range(0, 10)))
+
+    # Рандомно генерируем текст с длиной leng
+    generated_id = ''.join([random.choice(symbols) for i in range(int(leng))])
+
+    return generated_id
+
+
 def report_creator(user_id):
     connection = connection_creator()
     cursor = connection.cursor()
@@ -425,6 +434,30 @@ def get_data_by_term(user_id, term):
         user_id = ? 
         ORDER BY ID;
         """, (term, user_id)
+                   )
+    data = cursor.fetchall()
+
+    connection.close()
+    return data
+
+
+def get_report_by_term_for_excel(user_id, start_day, end_day):
+    """
+    :param user_id:
+    :param term:
+    :return: Возвращает записи из таблицы "report" работника в указанном сроке: [(id, user_id, date, comment, time, locatoin), ]
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    # Получаем  записи
+    cursor.execute("""
+        SELECT * FROM "report" 
+        WHERE date >= ? AND
+        date <= ? AND 
+        user_id = ? 
+        ORDER BY ID;
+        """, (start_day, end_day, user_id)
                    )
     data = cursor.fetchall()
 
