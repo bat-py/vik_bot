@@ -251,13 +251,16 @@ def excel_report_creator_first_type(term):
     # Формат для сталбцов: "Дата\n Приход\n Уход\n Опоздание\n Ранний уход..."
     data_field_format = workbook.add_format({'bold': True, 'bg_color': '#c0829f'})
 
-    worksheet.set_column(0, 8, 30)
+    worksheet.set_column(0, 0, 18)
+    worksheet.set_column(1, 1, 12)
+    worksheet.set_column(2, 6, 9)
+    worksheet.set_column(7, 8, 18)
 
     row = 2
     column = 0
 
     # Создаем титульную часть excel файла. Сперва добавим отступ чтобы текст был в середине экрана
-    title = ' ' * 44 + config['excel']['title']
+    title = ' ' * 70 + config['excel']['title']
 
     # Запишем титульную часть документа
     worksheet.merge_range(row, 0, row, 8, title, title_format)
@@ -267,7 +270,7 @@ def excel_report_creator_first_type(term):
     # Создаем msg типа: "С: 2022-04-01 до: 2022-04-30"
     end_date = chosen_days_str[-1]
     start_date = chosen_days_str[0]
-    date_str = f"{' ' * 53}С: {start_date} до: {end_date}"
+    date_str = f"{' ' * 80}С: {start_date} до: {end_date}"
 
     # Запишем промежуток: "С: 2022-04-01 до: 2022-04-30"
     worksheet.merge_range(row, 0, row, 8, date_str, title_format)
