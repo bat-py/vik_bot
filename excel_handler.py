@@ -85,8 +85,6 @@ class WorkerReport:
             minutes=int(config['time']['start_minute'])
         )
 
-        ten_min_delta = datetime.timedelta(minutes=10)
-
         for date, in_time in self.in_history.items():
             if in_time == '-':
                 # Добавим в библиотеку late_history: {date: 0} если в указанный день не пришел
@@ -100,7 +98,7 @@ class WorkerReport:
                 )
 
                 # Если пришел после 9:10, тогда добавим этот день как опоздавший
-                if in_time_delta > start_time_delta + ten_min_delta:
+                if in_time_delta > start_time_delta:
                     # Определим на сколько он опоздал
                     late_time = datetime.datetime.min + (in_time_delta - start_time_delta)
 
@@ -440,4 +438,4 @@ async def schedule_jobs(dp):
     # scheduler.add_job(excel_report_creator_second_type('month'), 'cron', hour=0, minute=0, args=(dp,))
 
 
-excel_report_creator_first_type('month')
+#excel_report_creator_first_type('month')

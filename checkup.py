@@ -172,7 +172,7 @@ async def check_last_2min_logs(dp: Dispatcher):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    activate_time = datetime.time(start_hour, start_minute + 11, 0)
+    activate_time = datetime.time(start_hour, start_minute + 1, 0)
     end_time = datetime.time(end_hour, end_minute, 0)
 
     # Если время в промежутке 9:05 - 19:00
@@ -466,7 +466,7 @@ async def schedule_jobs(dp):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    #scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute + 10, args=(dp,))
+    #scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp,))
     #scheduler.add_job(check_last_2min_logs, 'interval', seconds=60, args=(dp,))
     #scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
 

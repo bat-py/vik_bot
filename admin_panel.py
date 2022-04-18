@@ -2003,7 +2003,7 @@ async def all_workers_late_report_type_handler(callback_query: types.CallbackQue
         else:
             # Чтобы определить пришел ли он во время или нет нам понадобится время начала работы в timedelta формате
             start_hour = int(config['time']['start_hour'])
-            start_minute = int(config['time']['start_minute']) + 10
+            start_minute = int(config['time']['start_minute'])
             start_time = datetime.timedelta(hours=start_hour, minutes=start_minute)
 
             # Библиотека рабочих кто опоздал в указанном дне: {time: "9:10  Абдувосиков Жавохир", ...}
@@ -2670,7 +2670,7 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data == 'excel_report'
     )
 
-    dp.message_handler(
+    dp.register_message_handler(
         excel_file_sended,
         content_types=['text'],
         state=MyStates.excel_file_sended
