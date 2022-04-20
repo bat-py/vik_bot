@@ -270,14 +270,14 @@ def get_admin_menu_password():
     return password
 
 
-def get_last_2min_logins():
+def get_last_2min_logins(now_minus_one_min):
     """
     :return: Вернет ID тех людей кто зашел или ушел последние за 2мин
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= DATEADD(minute, -1 , GETDATE());""")
+    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= ?;""", (now_minus_one_min,))
     # cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
 
     logins = cursor.fetchall()

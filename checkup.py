@@ -2,13 +2,12 @@ from aiogram import Dispatcher, types
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import StatesGroup, State
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
 import button_creators
 import sql_handler
 import configparser
 import datetime
 from geopy.geocoders import Nominatim
-
+import asyncio
 geolocator = Nominatim(user_agent="vik_bot")
 
 scheduler = AsyncIOScheduler()
@@ -167,6 +166,8 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
 
 
 async def check_last_2min_logs(dp: Dispatcher):
+    now_minus_one_min = datetime.datetime.now() - datetime.timedelta(minutes=1)
+
     start_hour = int(config['time']['start_hour'])
     start_minute = int(config['time']['start_minute'])
     end_hour = int(config['time']['end_hour'])
@@ -184,7 +185,8 @@ async def check_last_2min_logs(dp: Dispatcher):
     # if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
     if activate_time <= now < end_time:
         # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
-        last_2min_logs = sql_handler.get_last_2min_logins()
+
+        last_2min_logs = sql_handler.get_last_2min_logins(now_minus_one_min)
 
         # Если за последние 2 минуты кто-то пришел или ушел
         if last_2min_logs:
@@ -467,7 +469,8 @@ async def schedule_jobs(dp):
     end_minute = int(config['time']['end_minute'])
 
     #scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp,))
-    #scheduler.add_job(check_last_2min_logs, 'interval', seconds=60, args=(dp,))
+    #scheduler.add_job(check_last_2min_logs, 'interval', seconds=10, args=(dp,))
+    scheduler.add_job(check_last_2min_logs, 'cron', minute='*/1', args=(dp,))
     #scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
 
 
