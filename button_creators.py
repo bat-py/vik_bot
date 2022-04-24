@@ -39,3 +39,10 @@ def hide_reply_buttons():
     hide_buttons = ReplyKeyboardRemove()
 
     return hide_buttons
+
+
+def geolocation_button(button_text):
+    location_button = ReplyKeyboardMarkup()
+    location_button.add(KeyboardButton(button_text, request_location=True))
+
+    return location_button

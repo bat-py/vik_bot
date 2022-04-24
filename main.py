@@ -8,7 +8,6 @@ import registration
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import checkup
 
-
 config = configparser.ConfigParser()
 config.read('config.ini')
 API_TOKEN = config['main']['api_token']
@@ -22,6 +21,15 @@ storage = MemoryStorage()
 dp = Dispatcher(bot=bot, storage=storage)
 
 
+@dp.message_handler(lambda message: message.text == 'testtt')
+async def testtt(message: types.Message):
+    a = await message.bot.send_message(
+        message.chat.id,
+        'helloooooo'
+    )
+    print(a.message_id)
+
+
 if __name__ == '__main__':
     registration.register_handlers(dp)
     admin_panel.register_handlers(dp)
@@ -29,4 +37,3 @@ if __name__ == '__main__':
     checkup.scheduler.start()
 
     executor.start_polling(dp, skip_updates=True, on_startup=checkup.schedule_jobs)
-

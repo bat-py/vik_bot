@@ -744,15 +744,9 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
             else:
                 total_late = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            day = int(total_late_time.strftime('%d')) - 1
-            hour = str(total_late_time.hour)
+            hours = str((total_late_time - 1)*24 + total_late_time.hour)
             minute = str(total_late_time.minute)
-            if hour == '0':
-                total_late = f"{str(day)} дней {minute} мин."
-            else:
-                total_late = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-            total_late = total_late.lstrip('0')
+            total_late = f"{hours} час. {minute} мин."
 
         msg1 = config['msg']['you_chose'] + chosen_worker[1]
         msg2 = '\n\n'.join(msg2_block_list)
@@ -826,6 +820,25 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
                     mesg3 = ms[0]
                     mesg4 = ms[1]
 
+                    # Получить: comment и geolocation: (comment, geolocatoin) или (comment, False) или False
+                    report = sql_handler.get_user_early_leaved_report_by_user_id_and_date(chosen_worker[0], day)
+                    # Если report не равно False и если он оставил хотябы комментарий:
+                    if report and report[0]:
+                        # Создаем строку "Причина:"
+                        mesg5 = f"\n{config['msg']['reason']} {report[0]}"
+
+                        # Если оставил геолокацию
+                        if report[1]:
+                            geolocation = report[1].split(',')
+                            url = f"https://www.google.com/maps?q={geolocation(0)},{geolocation(1)}&ll={geolocation(0)},{geolocation(1)}&z=16"
+                            mesg6 = f"\n{config['msg']['geolocation']} {url}"
+                        else:
+                            mesg6 = f"\n{config['msg']['didnt_send_geolocation']}"
+                    # Если вообще не ответил
+                    else:
+                        mesg5 = f"\n{config['msg']['reason']} {config['msg']['didnt_send_comment']}"
+                        mesg6 = ''
+
                     # Прибовляем время в суммарное время раннего ухода(если он ушел раньше. А если нет то timedelta = 0)
                     total_early_lived_time += out_check[1]
 
@@ -834,7 +847,7 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
                             config['msg']['three_lines'] + '</b>'
                     # Хранит "Приход: 15:12"
                     mesg2 = config['msg']['came'] + ' ' + str(in_out_time[0].strftime("%H:%M"))
-                    msg2_2 = mesg1 + '\n' + mesg2 + '  <b>|</b>  ' + mesg3 + '\n' + mesg4
+                    msg2_2 = mesg1 + '\n' + mesg2 + '  <b>|</b>  ' + mesg3 + '\n' + mesg4 + mesg5 + mesg6
 
                     msg2_block_list.append(msg2_2)
 
@@ -850,15 +863,9 @@ async def early_leaved_report_type_handler(callback_query: types.CallbackQuery, 
             else:
                 total_early = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            day = int(total_early_time.strftime('%d')) - 1
-            hour = str(total_early_time.hour)
+            hours = str((total_early_time.day - 1)*24 + total_early_time.hour)
             minute = str(total_early_time.minute)
-            if hour == '0':
-                total_early = f"{str(day)} дней {minute} мин."
-            else:
-                total_early = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-            total_early = total_early.lstrip('0')
+            total_early = f"{hours} час. {minute} мин."
 
         msg1 = config['msg']['you_chose'] + chosen_worker[1]
         msg2 = '\n\n'.join(msg2_block_list)
@@ -943,7 +950,7 @@ async def missed_days_report_type_handler(callback_query: types.CallbackQuery, s
                     config['msg']['three_lines'] + '</b>'
             mesg2 = config['msg']['did_not_come']
 
-            #msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
+            # msg2 = mesg1 + '\n' + mesg2 + '\n' + mesg3
             msg2 = mesg1 + '\n' + mesg3
             msg2_block_list.append(msg2)
 
@@ -1037,7 +1044,7 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
                     # Если получили in_device когда in_time пуст, значит всё в порядке
                     if i[1] == in_device:
                         in_time = i[0]
-                        #mesg2 += config['msg']['came'] + ' ' + i[0].strftime('%H:%M')
+                        # mesg2 += config['msg']['came'] + ' ' + i[0].strftime('%H:%M')
                     # Если in_time пуст но получили out_device, значит после уход опять получили уход. Приход между ними
                     # не было из-за того что рабочей не использовал faceid. В таком случае бот не будет рассчитывать это
                     # время и сотрудник потеряет время присутствии
@@ -1049,7 +1056,8 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
                     # Если получили out_device когда in_time не пуст, значит всё в порядке
                     if i[1] == out_device:
                         # Рассчитываем сколько часов был внутри и добавляем в суммарное время присутствии
-                        in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute, seconds=in_time.second)
+                        in_time_delta = datetime.timedelta(hours=in_time.hour, minutes=in_time.minute,
+                                                           seconds=in_time.second)
                         out_time_delta = datetime.timedelta(hours=i[0].hour, minutes=i[0].minute, seconds=i[0].second)
                         presence_time_delta = out_time_delta - in_time_delta
                         day_presence_time_delta += presence_time_delta
@@ -1080,7 +1088,6 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
                 time = f"{hour.lstrip('0')} час. {minute} мин."
             mesg3 = config['msg']['presence_time'] + ' ' + time
 
-
             # Если это выходной день тогда напишем: "---date---\n Выходные\n Приход: | Уход: ..."
             if str(datetime.date.isoweekday(day)) in config['time']['day_off']:
                 # Соберем все части сообщения(Со строкой "🗓 Выходные") и добавим в msg2_block_list
@@ -1104,15 +1111,9 @@ async def presence_time_report_type_handler(callback_query: types.CallbackQuery,
         else:
             total_presence = f"{hour.lstrip('0')} час. {minute} мин."
     else:
-        day = int(presence_time.strftime('%d')) - 1
-        hour = str(presence_time.hour)
+        hours = str((presence_time.day - 1)*24 + presence_time.hour)
         minute = str(presence_time.minute)
-        if hour == '0':
-            total_presence = f"{str(day)} дней {minute} мин."
-        else:
-            total_presence = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-        total_presence = total_presence.lstrip('0')
+        total_presence = f"{hours} час. {minute} мин."
 
     msg1 = config['msg']['you_chose'] + chosen_worker[1]
     msg2 = '\n\n'.join(msg2_block_list)
@@ -1184,10 +1185,17 @@ def calc_presence_time(user_id, day):
         # Вместо "Время присутствия: 07:52" создаем "Время присутствия: 7 часов 52 минуты"
         hour = str(day_presence_time.hour)
         minute = str(day_presence_time.minute)
-        if hour == '0':
-            time = f"{minute} мин."
+
+        if day_presence_time.day == 1:
+            if hour == '0':
+                time = f"{minute} мин."
+            else:
+                time = f"{hour.lstrip('0')} час. {minute} мин."
+        # Если время присутствия больше одного дня тогда будет: 52часа 5мин
         else:
-            time = f"{hour.lstrip('0')} час. {minute} мин."
+            hours = str((day_presence_time.day - 1) * 24 + day_presence_time.hour)
+            time = f"{hours} час. {minute} мин."
+
         # Составим сообщение: "Время присутствия: 2 час. 51 мин."
         mesg = config['msg']['presence_time'] + ' ' + time
 
@@ -1290,7 +1298,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                 # Все что внизу пропустим
                 continue
 
-            #if day in worker_report_dict:
+            # if day in worker_report_dict:
             # Так как in_out_time == False, значит он не пришел
             if not in_out_time:
                 mesg1 = config['msg']['did_not_come']
@@ -1312,7 +1320,7 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                                                      minutes=int(config['time']['start_minute']))
                 came_time = worker_report_dict[day][4]
                 came_time_delta = datetime.timedelta(hours=came_time.hour, minutes=came_time.minute,
-                                                            seconds=came_time.second)
+                                                     seconds=came_time.second)
                 late_time_in_seconds = came_time_delta - beginning_delta
                 late_time = (datetime.datetime.min + late_time_in_seconds).time()
 
@@ -1329,10 +1337,11 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
                 # Прибавим время опоздания в суммарную delta
                 total_late_hours += late_time_in_seconds
 
-                if worker_report_dict[day][3]:
-                    mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
-                else:
-                    mesg4 = config['msg']['reason']
+                #if worker_report_dict[day][3]:
+                #    mesg4 = config['msg']['reason'] + ' ' + worker_report_dict[day][3]
+                #else:
+                #    mesg4 = config['msg']['reason']
+                mesg4 = ''
 
                 # Получит (msg, timedelta): "Ушел в: 19:20" или "Ушел в: 15:20\n Ушел ра:ньше чем 3:40" или "Ушел в: Нету данных"
                 # timedelta: чтобы определить суммарное время
@@ -1593,8 +1602,6 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data.startswith('notification_button')
     )
 
-
-
     dp.register_message_handler(
         missing_list_handler,
         lambda message: message.text == config['msg']['missing']
@@ -1674,5 +1681,3 @@ def register_handlers(dp: Dispatcher):
         lambda c: c.data == 'main_menu',
         state='*'
     )
-
-

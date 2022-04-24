@@ -273,7 +273,7 @@ def report_creator(user_id):
 
         # Создаем новый запись в таблице
         try:
-            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?);""",
+            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?, ?);""",
                            (generated_id, user_id, date))
             connection.commit()
             break
@@ -286,11 +286,41 @@ def report_creator(user_id):
     return generated_id
 
 
-def comment_writer(comment_id, comment):
+def comment_writer(report_id, comment):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""UPDATE "report" SET comment = ? WHERE id = ? """, (comment, comment_id))
+    cursor.execute("""UPDATE "report" SET comment = ? WHERE id = ? """, (comment, report_id))
+    connection.commit()
+
+    connection.close()
+
+
+def get_user_id_data_time_from_report(report_id):
+    """
+    По id из таблицы report получим (user_id, date, time)
+    :param report_id:
+    :return: (user_id, date, time)
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT user_id, date, time 
+        FROM "report"
+        WHERE id = ?
+    """, (report_id,))
+    data = cursor.fetchone()
+
+    connection.close()
+    return data
+
+
+def late_missed_location_writer(report_id, location):
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""UPDATE "report" SET location = ? WHERE id = ? """, (location, report_id))
     connection.commit()
 
     connection.close()
@@ -413,8 +443,6 @@ def get_early_leaved_users():
     return early_leaved_users_dict_clear
 
 
-
-
 ###
 def early_leaved_writer(user_id, date, time):
     """
@@ -427,10 +455,99 @@ def early_leaved_writer(user_id, date, time):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""INSERT INTO "early_leaved" VALUES(?, ?, ?)""", (user_id, date, time))
+    symbols = []
+    symbols.extend(list(map(chr, range(ord('A'), ord('Z') + 1))))
+    symbols.extend(list(map(chr, range(ord('a'), ord('z') + 1))))
+    symbols.extend(list(str(i) for i in range(0, 10)))
+
+    while True:
+        # Рандомно генерируем 8 код
+        generated_id = ''.join([random.choice(symbols) for i in range(8)])
+
+        # Создаем новый запись в таблице
+        try:
+            cursor.execute("""INSERT INTO "early_leaved" VALUES(?, ?, ?, ?)""", (generated_id, user_id, date, time))
+            connection.commit()
+            break
+        # Если генерированный код уже есть в таблице, тогда выйдет ошибка и цикл опять заработает
+        except:
+            pass
+
+    connection.close()
+    return generated_id
+
+
+def early_leaved_comment_writer(report_id, comment):
+    """
+    Запишет оставленный комментарий рано ушедшим в таблицу "early_leaved"
+    :param report_id:
+    :param comment:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""UPDATE "early_leaved" SET comment = ? WHERE report_id = ?""", (comment, report_id))
     connection.commit()
 
     connection.close()
+
+
+def early_leaved_geolocation_writer(report_id, geolocation):
+    """
+    Запишет отправленную геолокацию рано ушедшим в таблицу "early_leaved"
+    :param report_id:
+    :param geolocation:
+    :return:
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""UPDATE "early_leaved" SET geolocation = ? WHERE report_id = ?""", (geolocation, report_id))
+    connection.commit()
+
+    connection.close()
+
+
+def get_user_name_leaved_data_time_from_early_leaved(report_id):
+    """
+    По report_id из таблицы early_leaved получим (user_id, date, time)
+    :param report_id:
+    :return: (user_id, date, time)
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT user_id, date, time 
+        FROM "early_leaved"
+        WHERE report_id = ?
+    """, (report_id,))
+    data = cursor.fetchone()
+
+    connection.close()
+    return data
+
+
+def get_user_early_leaved_report_by_user_id_and_date(user_id, date):
+    """
+    Из таблицы "early_leaved" найдем report с помощью user_id и day.(False, False)
+    :param user_id:
+    :param day:
+    :return: Вернет comment и geolocation: (comment, geolocatoin) или (comment, False) или False
+    """
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+        SELECT comment, geolocation
+        FROM "early_leaved"
+        WHERE user_id = ? AND date = ?
+    """, (user_id, date))
+    comment_geolocation = cursor.fetchone()
+
+    connection.close()
+    return comment_geolocation
 
 
 ###
@@ -438,7 +555,7 @@ def early_leaved_user_history(user_id, term):
     """
     :param term:
     :param user_id:
-    :return: Возвращает историю(на сколько рано ушел) указанного рабочего в указанном периоде: [(id, date, time), ...]
+    :return: Возвращает историю(на сколько рано ушел) указанного рабочего в указанном периоде: [(report_id, user_id, date, time, comment, geolocation), ...]
 
     """
     connection = connection_creator()
