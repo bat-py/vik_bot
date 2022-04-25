@@ -365,7 +365,7 @@ async def leaved_late_location_handler(message: types.Message, state: FSMContext
     msg = msg1 + '\n' + msg2 + '\n\n' + msg3 + '\n' + msg4 + msg5
 
     # Получаем список [(chat_id, first_name, notification), ...] админов где столбец latecomer_send_comment_notification = 1
-    admins_list = sql_handler.get_admins_where_notification_on('latecomer_send_comment_notification')
+    admins_list = sql_handler.get_admins_where_notification_on('comment_notification')
 
     # Отправим админам у кого latecomer_send_comment_notification == 1
     for admin in admins_list:
@@ -611,7 +611,7 @@ async def early_leaved_geolocation_handler(message: types.Message, state: FSMCon
     msg = msg1 + '\n' + msg2 + '\n\n' + msg3 + '\n' + msg4 + '\n' + msg5 + msg6
 
     # Получаем список [(chat_id, first_name, notification), ...] админов где столбец early_leave_notification = 1
-    admins_list = sql_handler.get_admins_where_notification_on('early_leaver_send_comment_notification')
+    admins_list = sql_handler.get_admins_where_notification_on('comment_notification')
 
     # Отправим админам у кого early_leaver_send_comment_notification == 1
     for admin in admins_list:

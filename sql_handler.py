@@ -156,13 +156,13 @@ def check_admin_exist(chat_id):
 def get_admin_notification_status(chat_id):
     """
     :param chat_id:
-    :return: Возвращает 3 статуса: (0, 1, 0)
+    :return: Возвращает 4 статуса: (0, 1, 0, 1)
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
     cursor.execute("""
-    SELECT late_come_notification, latecomer_came_notification, early_leave_notification
+    SELECT late_come_notification, latecomer_came_notification, comment_notification, early_leave_notification
     FROM "admins" 
     WHERE chat_id = ?;""", (chat_id,))
     status = cursor.fetchone()
@@ -174,7 +174,7 @@ def get_admin_notification_status(chat_id):
 def update_admin_notification_status(chat_id, status):
     """
     :param chat_id:
-    :param status: Тут будет кортеж с 3 статусами: (0, 1, 0)
+    :param status: Тут будет кортеж с 3 статусами: (0, 1, 0, 1)
     :return:
     """
     connection = connection_creator()
@@ -182,7 +182,7 @@ def update_admin_notification_status(chat_id, status):
 
     cursor.execute("""
     UPDATE "admins"
-    SET late_come_notification = ?, latecomer_came_notification = ?, early_leave_notification = ?
+    SET late_come_notification = ?, latecomer_came_notification = ?, comment_notification = ?, early_leave_notification = ?
     WHERE chat_id = ?;""", (*status, chat_id))
     connection.commit()
 
