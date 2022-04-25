@@ -756,7 +756,7 @@ async def late_report_type_handler(callback_query: types.CallbackQuery, state: F
             else:
                 total_late = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            hours = str((total_late_time - 1)*24 + total_late_time.hour)
+            hours = str((total_late_time.day - 1)*24 + total_late_time.hour)
             minute = str(total_late_time.minute)
             total_late = f"{hours} час. {minute} мин."
 
@@ -1422,15 +1422,9 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
             else:
                 total_late = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            day = int(total_late_time.strftime('%d')) - 1
-            hour = str(total_late_time.hour)
+            hours = str((total_late_time.day - 1) * 24 + total_late_time.hour)
             minute = str(total_late_time.minute)
-            if hour == '0':
-                total_late = f"{str(day)} дней {minute} мин."
-            else:
-                total_late = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-            total_late = total_late.lstrip('0')
+            total_late = f"{hours} час. {minute} мин."
 
         # Из дельта переводим на обычный время раннего ухода
         total_early_time = datetime.datetime.min + total_early_lived_time
@@ -1442,15 +1436,9 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
             else:
                 total_early = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            day = int(total_early_time.strftime('%d')) - 1
-            hour = str(total_early_time.hour)
+            hours = str((total_early_time.day - 1) * 24 + total_early_time.hour)
             minute = str(total_early_time.minute)
-            if hour == '0':
-                total_early = f"{str(day)} дней {minute} мин."
-            else:
-                total_early = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-            total_early = total_early.lstrip('0')
+            total_early = f"{hours} час. {minute} мин."
 
         # Из дельта переводим на обычный время присутствия
         presence_time = datetime.datetime.min + total_presence_time
@@ -1462,15 +1450,9 @@ async def all_data_report_type_handler(callback_query: types.CallbackQuery, stat
             else:
                 total_presence = f"{hour.lstrip('0')} час. {minute} мин."
         else:
-            day = int(presence_time.strftime('%d')) - 1
-            hour = str(presence_time.hour)
+            hours = str((presence_time.day - 1) * 24 + presence_time.hour)
             minute = str(presence_time.minute)
-            if hour == '0':
-                total_presence = f"{str(day)} дней {minute} мин."
-            else:
-                total_presence = f"{str(day)} дней {hour.lstrip('0')} час. {minute} мин."
-
-            total_presence = total_presence.lstrip('0')
+            total_presence = f"{hours} час. {minute} мин."
 
         msg3_1 = config['msg']['total_late'] + ' ' + total_late
         msg3_2 = config['msg']['total_early'] + ' ' + total_early
