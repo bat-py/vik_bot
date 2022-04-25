@@ -200,15 +200,15 @@ def get_admin_menu_password():
     return password
 
 
-def get_last_2min_logins(now_minus_one_min):
+def get_last_1min_logins():
     """
-    :return: Вернет ID тех людей кто зашел или ушел последние за 2мин
+    :return: Вернет ID тех людей кто зашел или ушел последние за 1мин
     """
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= ?;""", (now_minus_one_min, ))
-    # cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(minute, -5, GETDATE());""")
+    #cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= ?;""", (now_minus_one_min, ))
+    cursor.execute("""SELECT time FROM ivms WHERE datetime >= DATEADD(second, -60, GETDATE());""")
 
     logins = cursor.fetchall()
     id = []
@@ -273,7 +273,7 @@ def report_creator(user_id):
 
         # Создаем новый запись в таблице
         try:
-            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?, ?);""",
+            cursor.execute("""INSERT INTO "report"(id, user_id, date) VALUES(?, ?, ?);""",
                            (generated_id, user_id, date))
             connection.commit()
             break

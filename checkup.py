@@ -170,7 +170,6 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
 
 
 async def check_last_2min_logs(dp: Dispatcher):
-    now_minus_one_min = datetime.datetime.now() - datetime.timedelta(minutes=1)
     start_hour = int(config['time']['start_hour'])
     start_minute = int(config['time']['start_minute'])
     end_hour = int(config['time']['end_hour'])
@@ -188,11 +187,11 @@ async def check_last_2min_logs(dp: Dispatcher):
     # if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
     if activate_time <= now < end_time:
         # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
-        last_2min_logs = sql_handler.get_last_2min_logins(now_minus_one_min)
+        last_1min_logs = sql_handler.get_last_1min_logins()
 
         # Если за последние 2 минуты кто-то пришел или ушел
-        if last_2min_logs:
-            for user in last_2min_logs:
+        if last_1min_logs:
+            for user in last_1min_logs:
                 # Проверим опоздавшего на control/uncontrol
                 control = sql_handler.check_control(int(user[0]))
                 # Если опоздавший имеет статус Control, тогда админам отправим что он пришел только что пришел
