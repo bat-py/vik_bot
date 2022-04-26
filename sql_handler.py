@@ -466,7 +466,7 @@ def early_leaved_writer(user_id, date, time):
 
         # Создаем новый запись в таблице
         try:
-            cursor.execute("""INSERT INTO "early_leaved" VALUES(?, ?, ?, ?)""", (generated_id, user_id, date, time))
+            cursor.execute("""INSERT INTO "early_leaved"(report_id, user_id, date, time) VALUES(?, ?, ?, ?)""", (generated_id, user_id, date, time))
             connection.commit()
             break
         # Если генерированный код уже есть в таблице, тогда выйдет ошибка и цикл опять заработает
