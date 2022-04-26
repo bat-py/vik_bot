@@ -2,6 +2,8 @@ import configparser
 import logging
 from aiogram import Bot, Dispatcher, executor, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.dispatcher import FSMContext
+
 import admin_panel
 import sql_handler
 import registration
@@ -22,7 +24,7 @@ dp = Dispatcher(bot=bot, storage=storage)
 
 
 @dp.message_handler(lambda message: message.text == 'testtt')
-async def testtt(message: types.Message):
+async def testtt(message: types.Message, state: FSMContext):
     a = await message.bot.send_message(
         message.chat.id,
         'helloooooo'

@@ -1566,7 +1566,39 @@ def early_leave_check(time):
     return msg, early_time_delta
 
 
+async def bot_updated(message: types.Message, state: FSMContext):
+    """
+    Всем админам отправит сообщение про обновление и вернет Главное меню
+    :param message:
+    :param state:
+    :return:
+    """
+    msg = config['msg']['bot_updated']
+
+    # Получаем список [(chat_id, first_name, notification), ...] всех админов
+    admins_list = sql_handler.get_admins_list()
+
+    for admin in admins_list:
+        try:
+            # Отправим составленное сообщение
+            await message.bot.send_message(
+                admin[0],
+                msg
+            )
+            # Отправим главное меню
+            await main_menu(message, state)
+        except:
+            continue
+
+
 def register_handlers(dp: Dispatcher):
+    # Чтобы всем админам отправит сообщение об обновлении и вернет главное меню
+    dp.register_message_handler(
+        bot_updated,
+        lambda message: message.text == 'bot_updated_010203',
+        state='*'
+    )
+
     # Нужен только для того чтобы работал кнопка "Назад" после того как показал отчет за выбранный период
     dp.register_message_handler(
         report_page_buttons,
