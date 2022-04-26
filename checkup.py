@@ -605,7 +605,7 @@ async def early_leaved_comment_handler(message: types.Message, state: FSMContext
         msg3 = f"<b>{config['msg']['date']}</b> {early_leaved_worker_info[1].strftime('%d.%m.%Y')}"
         msg4 = f"{config['msg']['leaved']} {early_leaved_worker_info[2].strftime('%H:%M')}"
         msg5 = f"{config['msg']['reason']} {comment}"
-        msg = msg1 + '\n' + msg2 + '\n\n' + msg3 + '\n' + msg4 + '\n' + msg5
+        msg = msg1 + '\n' + msg2 + '\n' + msg3 + '\n' + msg4 + '\n' + msg5
 
         # Получаем список [(chat_id, first_name, notification), ...] админов где столбец comment_notification = 1
         admins_list = sql_handler.get_admins_where_notification_on('comment_notification')
