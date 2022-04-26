@@ -102,8 +102,13 @@ def add_new_admin(chat_id, first_name):
     connection = connection_creator()
     cursor = connection.cursor()
 
-    cursor.execute('INSERT INTO "admins" VALUES(?, ?, ?)', (chat_id, first_name, 0))
-    connection.commit()
+    # Иногда из-за каких-то символов sql не принимает first_name
+    try:
+        cursor.execute('INSERT INTO "admins" VALUES(?, ?, ?)', (chat_id, first_name, 0))
+        connection.commit()
+    except:
+        cursor.execute('INSERT INTO "admins" VALUES(?, ?, ?)', (chat_id, 'None', 0))
+        connection.commit()
 
     connection.close()
 
