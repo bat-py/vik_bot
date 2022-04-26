@@ -20,9 +20,9 @@ config.read('config.ini')
 
 class MyStates(StatesGroup):
     waiting_for_late_comment = State()
-    waiting_for_late_location = State()
+    #waiting_for_late_location = State()
     waiting_for_early_leave_comment = State()
-    waiting_for_early_leave_location = State()
+    #waiting_for_early_leave_location = State()
 
 
 async def check_users_in_logs(dp: Dispatcher):
@@ -299,23 +299,51 @@ async def leaved_late_comment_handler(message: types.Message, state: FSMContext)
     else:
         comment = message.text
         all_data = await state.get_data()
-        comment_id = all_data['report_id']
+        report_id = all_data['report_id']
         await state.update_data(comment=comment)
 
         # Поменяем статус и ждем пока опоздавший не отправит геолокацию
-        await MyStates.waiting_for_late_location.set()
+        #await MyStates.waiting_for_late_location.set()
+        await state.finish()
 
         # Запишем комментарию в таблицу report
-        sql_handler.comment_writer(comment_id, comment)
+        sql_handler.comment_writer(report_id, comment)
 
         # Сообщим пользователю что комментария сохранена и попросим от него отправить геолокацию
-        geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
-        msg1 = config['msg']['comment_saved']
-        msg2 = config['msg']['send_geolocation']
-        msg = f"{msg1}. {msg2}"
-        await message.answer(msg, reply_markup=geolocation_button)
+        #geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
+        #msg1 = config['msg']['comment_saved']
+        #msg2 = config['msg']['send_geolocation']
+        #msg = f"{msg1}. {msg2}"
+        #await message.answer(msg, reply_markup=geolocation_button)
+        msg = config['msg']['comment_saved']
+        button_remove = button_creators.hide_reply_buttons()
+        await message.answer(msg, reply_markup=button_remove)
+
+        # Составим сообщения чтобы отправить админам
+        # Получит (user_id, date, time) из таблицы "report"
+        latecomer_info = sql_handler.get_user_id_data_time_from_report(report_id)
+        user_name = sql_handler.get_user_name(latecomer_info[0])
+
+        lines = config['msg']['three_lines']
+        msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+        msg2 = f"<b>{user_name}</b> {config['msg']['latecomer_leaved_comment']}"
+        msg3 = f"<b>{config['msg']['date']}</b> {latecomer_info[1].strftime('%d.%m.%Y')}"
+        msg4 = f"{config['msg']['reason']} {comment}"
+        msg = msg1 + '\n' + msg2 + '\n' + msg3 + '\n' + msg4
+
+        # Получаем список [(chat_id, first_name, notification), ...] админов где столбец comment_notification = 1
+        admins_list = sql_handler.get_admins_where_notification_on('comment_notification')
+
+        # Отправим админам у кого comment_notification == 1
+        for admin in admins_list:
+            # Отправим составленное сообщение
+            await message.bot.send_message(
+                admin[0],
+                msg
+            )
 
 
+# Not working for now
 async def leaved_late_location_handler(message: types.Message, state: FSMContext):
     """
     Запустится после того как опоздавший отправил геолокацию
@@ -544,25 +572,54 @@ async def early_leaved_comment_handler(message: types.Message, state: FSMContext
     else:
         comment = message.text
         all_data = await state.get_data()
-        comment_id = all_data['report_id']
+        report_id = all_data['report_id']
 
         # Сохраним комментарию в state
-        await state.update_data(comment=comment)
+        # await state.update_data(comment=comment)
 
         # Запишем комментарию в таблицу early_leaved
-        sql_handler.early_leaved_comment_writer(comment_id, comment)
+        sql_handler.early_leaved_comment_writer(report_id, comment)
 
         # Меняем статус на waiting_for_early_leave_comment
-        await MyStates.waiting_for_early_leave_location.set()
+        # await MyStates.waiting_for_early_leave_location.set()
+        await state.finish()
 
         # Сообщим пользователю что комментария сохранена и попросим от него отправить геолокацию
-        geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
-        msg1 = config['msg']['comment_saved']
-        msg2 = config['msg']['send_geolocation']
-        msg = f"{msg1}. {msg2}"
-        await message.answer(msg, reply_markup=geolocation_button)
+        #geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
+        #msg1 = config['msg']['comment_saved']
+        #msg2 = config['msg']['send_geolocation']
+        #msg = f"{msg1}. {msg2}"
+        #await message.answer(msg, reply_markup=geolocation_button)
+        msg = config['msg']['comment_saved']
+        button_remove = button_creators.hide_reply_buttons()
+        await message.answer(msg, reply_markup=button_remove)
+
+        # Составим сообщения чтобы отправить админам
+        # Получит (user_id, date, time) из таблицы "early_leaved"
+        early_leaved_worker_info = sql_handler.get_user_name_leaved_data_time_from_early_leaved(report_id)
+        user_name = sql_handler.get_user_name(early_leaved_worker_info[0])
+
+        lines = config['msg']['three_lines']
+        msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
+        msg2 = f"<b>{user_name}</b> {config['msg']['early_leaver_leaved_comment']}"
+        msg3 = f"<b>{config['msg']['date']}</b> {early_leaved_worker_info[1].strftime('%d.%m.%Y')}"
+        msg4 = f"{config['msg']['leaved']} {early_leaved_worker_info[2].strftime('%H:%M')}"
+        msg5 = f"{config['msg']['reason']} {comment}"
+        msg = msg1 + '\n' + msg2 + '\n\n' + msg3 + '\n' + msg4 + '\n' + msg5
+
+        # Получаем список [(chat_id, first_name, notification), ...] админов где столбец comment_notification = 1
+        admins_list = sql_handler.get_admins_where_notification_on('comment_notification')
+
+        # Отправим админам у кого comment_notification == 1
+        for admin in admins_list:
+            # Отправим составленное сообщение
+            await message.bot.send_message(
+                admin[0],
+                msg
+            )
 
 
+# Not working for now
 async def early_leaved_geolocation_handler(message: types.Message, state: FSMContext):
     """
     Запустится после того как рано ушедший отправил свою геолокацию
@@ -635,9 +692,9 @@ async def schedule_jobs(dp):
     end_hour = int(config['time']['end_hour'])
     end_minute = int(config['time']['end_minute'])
 
-    #scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp,))
-    #scheduler.add_job(check_last_2min_logs, 'cron', minute='*/1', args=(dp,))
-    #scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
+    scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp,))
+    scheduler.add_job(check_last_2min_logs, 'cron', minute='*/1', args=(dp,))
+    scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
 
 
 def register_handlers(dp: Dispatcher):
