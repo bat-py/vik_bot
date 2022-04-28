@@ -336,11 +336,15 @@ async def leaved_late_comment_handler(message: types.Message, state: FSMContext)
 
         # Отправим админам у кого comment_notification == 1
         for admin in admins_list:
-            # Отправим составленное сообщение
-            await message.bot.send_message(
-                admin[0],
-                msg
-            )
+            try:
+                await message.bot.send_message(
+                    admin[0],
+                    msg
+                )
+            except Exception as e:
+                with open('journal.txt', 'a') as w:
+                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                            'checkup.leaved_late_comment_handler:\n' + str(e) + '\n\n')
 
 
 # Not working for now
@@ -612,11 +616,15 @@ async def early_leaved_comment_handler(message: types.Message, state: FSMContext
 
         # Отправим админам у кого comment_notification == 1
         for admin in admins_list:
-            # Отправим составленное сообщение
-            await message.bot.send_message(
-                admin[0],
-                msg
-            )
+            try:
+                await message.bot.send_message(
+                    admin[0],
+                    msg
+                )
+            except Exception as e:
+                with open('journal.txt', 'a') as w:
+                    w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                            'checkup.early_leaved_comment_handler:\n' + str(e) + '\n\n')
 
 
 # Not working for now
@@ -723,8 +731,8 @@ def register_handlers(dp: Dispatcher):
         state=MyStates.waiting_for_early_leave_comment
     )
 
-    dp.register_message_handler(
-        early_leaved_geolocation_handler,
-        content_types=['location'],
-        state=MyStates.waiting_for_early_leave_location
-    )
+    #dp.register_message_handler(
+    #    early_leaved_geolocation_handler,
+    #    content_types=['location'],
+    #    state=MyStates.waiting_for_early_leave_location
+    #)
