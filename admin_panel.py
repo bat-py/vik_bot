@@ -1585,8 +1585,19 @@ async def bot_updated(message: types.Message, state: FSMContext):
                 admin[0],
                 msg
             )
-            # Отправим главное меню
-            await main_menu(message, state)
+
+
+            # Создаем кнопки
+            buttons_name = [[config['msg']['report']], [config['msg']['missing']], [config['msg']['on_off']]]
+            buttons = button_creators.reply_keyboard_creator(buttons_name)
+            # Составим сообщение
+            msg_home = config['msg']['main_menu']
+            await message.bot.send_message(
+                admin[0].from_user.id,
+                msg_home,
+                reply_markup=buttons
+            )
+
         except:
             continue
 

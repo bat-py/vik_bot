@@ -326,7 +326,7 @@ async def leaved_late_comment_handler(message: types.Message, state: FSMContext)
 
         lines = config['msg']['three_lines']
         msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
-        msg2 = f"<b>{user_name}</b> {config['msg']['latecomer_leaved_comment']}"
+        msg2 = f"📩 <b>{user_name}</b> {config['msg']['latecomer_leaved_comment']}"
         msg3 = f"<b>{config['msg']['date']}</b> {latecomer_info[1].strftime('%d.%m.%Y')}"
         msg4 = f"{config['msg']['reason']} {comment}"
         msg = msg1 + '\n' + msg2 + '\n' + msg3 + '\n' + msg4
@@ -529,7 +529,7 @@ async def early_leave_comment_inline_button_handler(callback_query: types.Callba
     :param state:
     :return:
     """
-    report_id = callback_query.data.replace('late_missing_comment', '')
+    report_id = callback_query.data.replace('early_leave_comment', '')
 
     # Удаляем inline кнопку
     await callback_query.bot.edit_message_reply_markup(
@@ -601,7 +601,7 @@ async def early_leaved_comment_handler(message: types.Message, state: FSMContext
 
         lines = config['msg']['three_lines']
         msg1 = lines + ' ' + datetime.date.today().strftime('%d.%m.%Y') + ' ' + lines
-        msg2 = f"<b>{user_name}</b> {config['msg']['early_leaver_leaved_comment']}"
+        msg2 = f"📩 <b>{user_name}</b> {config['msg']['early_leaver_leaved_comment']}"
         msg3 = f"<b>{config['msg']['date']}</b> {early_leaved_worker_info[1].strftime('%d.%m.%Y')}"
         msg4 = f"{config['msg']['leaved']} {early_leaved_worker_info[2].strftime('%H:%M')}"
         msg5 = f"{config['msg']['reason']} {comment}"
