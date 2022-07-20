@@ -20,9 +20,9 @@ config.read('config.ini')
 
 class MyStates(StatesGroup):
     waiting_for_late_comment = State()
-    #waiting_for_late_location = State()
+    # waiting_for_late_location = State()
     waiting_for_early_leave_comment = State()
-    #waiting_for_early_leave_location = State()
+    # waiting_for_early_leave_location = State()
 
 
 async def check_users_in_logs(dp: Dispatcher):
@@ -303,18 +303,18 @@ async def leaved_late_comment_handler(message: types.Message, state: FSMContext)
         await state.update_data(comment=comment)
 
         # Поменяем статус и ждем пока опоздавший не отправит геолокацию
-        #await MyStates.waiting_for_late_location.set()
+        # await MyStates.waiting_for_late_location.set()
         await state.finish()
 
         # Запишем комментарию в таблицу report
         sql_handler.comment_writer(report_id, comment)
 
         # Сообщим пользователю что комментария сохранена и попросим от него отправить геолокацию
-        #geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
-        #msg1 = config['msg']['comment_saved']
-        #msg2 = config['msg']['send_geolocation']
-        #msg = f"{msg1}. {msg2}"
-        #await message.answer(msg, reply_markup=geolocation_button)
+        # geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
+        # msg1 = config['msg']['comment_saved']
+        # msg2 = config['msg']['send_geolocation']
+        # msg = f"{msg1}. {msg2}"
+        # await message.answer(msg, reply_markup=geolocation_button)
         msg = config['msg']['comment_saved']
         button_remove = button_creators.hide_reply_buttons()
         await message.answer(msg, reply_markup=button_remove)
@@ -371,7 +371,6 @@ async def leaved_late_location_handler(message: types.Message, state: FSMContext
     # Отправим опоздавшему сообщение что геолокация успешно сохранено
     msg = config['msg']['thanks_for_comment']
     await message.answer(msg)
-
 
     # Составим сообщения чтобы отправить админам
     # Получит (user_id, date, time) из таблицы "report"
@@ -519,11 +518,16 @@ async def send_notification_to_early_leaver(dp: Dispatcher, report_id, early_lea
     msg = msg1 + '\n' + msg2
 
     # Отправим сообщения с inline кнопкой "Оставить комментарии" опоздавшему
-    await dp.bot.send_message(
-        early_leaver_info[3],
-        msg,
-        reply_markup=leave_comment_button
-    )
+    try:
+        await dp.bot.send_message(
+            early_leaver_info[3],
+            msg,
+            reply_markup=leave_comment_button
+        )
+    except Exception as e:
+        with open('journal.txt', 'a') as w:
+            w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
+                    'checkup.send_notification_to_early_leaver:\n' + str(e) + '\n\n')
 
 
 async def early_leave_comment_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -589,11 +593,11 @@ async def early_leaved_comment_handler(message: types.Message, state: FSMContext
         await state.finish()
 
         # Сообщим пользователю что комментария сохранена и попросим от него отправить геолокацию
-        #geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
-        #msg1 = config['msg']['comment_saved']
-        #msg2 = config['msg']['send_geolocation']
-        #msg = f"{msg1}. {msg2}"
-        #await message.answer(msg, reply_markup=geolocation_button)
+        # geolocation_button = button_creators.geolocation_button(config['msg']['geolocation_button_text'])
+        # msg1 = config['msg']['comment_saved']
+        # msg2 = config['msg']['send_geolocation']
+        # msg = f"{msg1}. {msg2}"
+        # await message.answer(msg, reply_markup=geolocation_button)
         msg = config['msg']['comment_saved']
         button_remove = button_creators.hide_reply_buttons()
         await message.answer(msg, reply_markup=button_remove)
@@ -731,8 +735,8 @@ def register_handlers(dp: Dispatcher):
         state=MyStates.waiting_for_early_leave_comment
     )
 
-    #dp.register_message_handler(
+    # dp.register_message_handler(
     #    early_leaved_geolocation_handler,
     #    content_types=['location'],
     #    state=MyStates.waiting_for_early_leave_location
-    #)
+    # )
