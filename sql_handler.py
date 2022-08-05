@@ -657,8 +657,56 @@ def get_all_in_outs_one_day(user_id, date):
 
     all_in_outs_one_day = cursor.fetchall()
 
+    connection.close()
+
     return all_in_outs_one_day
 
+
+def check_today_latecomer(user_id):
+    """
+    По id человека проверим есть ли он в таблице today_latecomers. Если есть значит сегодня мы уже отправили уведомление
+    о приходе этого опоздавшего админам
+    Returns: True если он уже есть в таблице today_latecomers сегодня. False если не найдено
+    """
+    today_date = datetime.date.today()
+
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""
+                     SELECT * FROM "today_latecomers" 
+                     WHERE date = ? AND ID = ?
+                   """,
+                   (today_date, int(user_id))
+                   )
+
+    checked = cursor.fetchone()
+
+    connection.close()
+
+    return checked
+
+
+def add_latecomer_in_table_today_latecomers(user_id):
+    """
+    Запишет переданный id и сегодняшнюю дату в таблицу today_latecomers
+    Все записи таблицы today_latecomers каждый день очищается
+    Args:
+        user_id:
+    Returns:
+    """
+    today_date = datetime.date.today()
+
+    connection = connection_creator()
+    cursor = connection.cursor()
+
+    cursor.execute("""INSERT INTO "today_latecomers"(ID, date) VALUES(?, ?)""",
+                   (int(user_id), today_date)
+                   )
+
+    connection.commit()
+
+    connection.close()
 
 
 def test():

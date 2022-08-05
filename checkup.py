@@ -169,7 +169,14 @@ async def send_notification_to_latecomer(dp: Dispatcher, latecomer_info):
     )
 
 
-async def check_last_2min_logs(dp: Dispatcher):
+async def check_last_1min_logs(dp: Dispatcher):
+    """
+    Функция запускается каждую минуту, но проверяет последний 30мин, так как ivms поздно отправляет данные
+    Чтобы повторно не отправлял каждую минуту, сохраним отправленные уведомления о приходе опоздавшего в таблицу today_latecomers
+    Args:
+        dp:
+    Returns:
+    """
     start_hour = int(config['time']['start_hour'])
     start_minute = int(config['time']['start_minute'])
     end_hour = int(config['time']['end_hour'])
@@ -186,23 +193,30 @@ async def check_last_2min_logs(dp: Dispatcher):
 
     # if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
     if activate_time <= now < end_time:
-        # Получим список ID в виде МНОЖЕСТВО: "{'00000011', '00000026', ...}" тех кто зашел или ушел за последние 2мин
-        last_1min_logs = sql_handler.get_last_1min_logins()
+        # Получим список ID тех кто зашел или ушел за последние 2мин
+        last_30min_logs = sql_handler.get_last_30min_logins()
 
-        # Если за последние 2 минуты кто-то пришел или ушел
-        if last_1min_logs:
-            for user in last_1min_logs:
+        # Если за последние 30 минуты кто-то пришел или ушел
+        for user in last_30min_logs:
+            # Проверяем есть ли этот человек в таблице today_latecomers сегодня. Если есть значит сегодня про приходе
+            # этого опоздавшего уже отправлено уведомление админам. Присвоит True если сегодня в таблице он есть.
+            today_user_status = sql_handler.check_today_latecomer(user[0])
+
+            # Так как мы проверяем последний 30мин с начала дня, мы получим id тех кто даже не опоздал.
+            # Поэтому проверим время прихода тоже, он должен быть больше чем activate_time
+            if not today_user_status and user[1] > activate_time:
                 # Проверим опоздавшего на control/uncontrol
                 control = sql_handler.check_control(int(user[0]))
                 # Если опоздавший имеет статус Control, тогда админам отправим что он пришел только что пришел
                 if control:
-                    print('control working')
                     # Чтобы узнать первый раз ли он зашел получим количество логов рабочего за сегодня
                     all_logs_count = sql_handler.get_user_today_logs_count(user[0])
 
                     # Если это его первый раз за сегодня значит он только что пришел. Отправим админам что он пришел
                     if all_logs_count == 1:
-                        print('first_time working')
+                        # Запишем id опоздавшего и сегодняшнюю дату в таблицу today_latecomers
+                        sql_handler.add_latecomer_in_table_today_latecomers(user[0])
+
                         admins = sql_handler.get_admins_where_notification_on('latecomer_came_notification')
                         admins_chat_id_list = list(map(lambda i: i[0], admins))
 
@@ -238,8 +252,6 @@ async def check_last_2min_logs(dp: Dispatcher):
                         msg4 = f"<b>{config['msg']['late_by']}</b> {late_time}"
                         msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
 
-                        print(admins_chat_id_list)
-
                         for admin_id in admins_chat_id_list:
                             try:
                                 await dp.bot.send_message(
@@ -249,8 +261,8 @@ async def check_last_2min_logs(dp: Dispatcher):
                             except Exception as e:
                                 with open('journal.txt', 'a') as w:
                                     w.write(datetime.datetime.now().strftime('%d.%m.%Y %H:%M  ') + \
-                                            'checkup.check_last_2min_logs:\n' + str(e) + '\n\n')
-                                print('checkup.check_last_2min_logs:  ', str(e))
+                                            'checkup.check_last_1min_logs:\n' + str(e) + '\n\n')
+                                print('checkup.check_last_1min_logs:  ', str(e))
 
 
 async def leave_late_comment_inline_button_handler(callback_query: types.CallbackQuery, state: FSMContext):
@@ -709,7 +721,7 @@ async def schedule_jobs(dp):
     end_minute = int(config['time']['end_minute'])
 
     scheduler.add_job(check_users_in_logs, 'cron', hour=start_hour, minute=start_minute, args=(dp,))
-    scheduler.add_job(check_last_2min_logs, 'cron', minute='*/1', args=(dp,))
+    scheduler.add_job(check_last_1min_logs, 'cron', minute='*/1', args=(dp,))
     scheduler.add_job(check_end_of_the_day, 'cron', hour=end_hour, minute=end_minute, args=(dp,))
 
 
