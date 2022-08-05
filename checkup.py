@@ -193,7 +193,7 @@ async def check_last_1min_logs(dp: Dispatcher):
 
     # if activate_time <= now < end_time and str(day_of_week) not in config['time']['day_off']:
     if activate_time <= now < end_time:
-        # Получим список ID тех кто зашел или ушел за последние 2мин
+        # Получим список ID тех кто зашел или ушел за последние 30мин
         last_30min_logs = sql_handler.get_last_30min_logins()
 
         # Если за последние 30 минуты кто-то пришел или ушел

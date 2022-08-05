@@ -205,7 +205,7 @@ def get_admin_menu_password():
     return password
 
 
-def get_last_1min_logins():
+def get_last_30min_logins():
     """
     :return: Вернет ID тех людей кто зашел или ушел последние за 1мин
     """
@@ -213,7 +213,7 @@ def get_last_1min_logins():
     cursor = connection.cursor()
 
     #cursor.execute("""SELECT ID, time FROM ivms WHERE datetime >= ?;""", (now_minus_one_min, ))
-    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime > DATEADD(second, -60, GETDATE());""")
+    cursor.execute("""SELECT ID, time FROM ivms WHERE datetime > DATEADD(minute, -30, GETDATE());""")
 
     logins = cursor.fetchall()
     id = []
