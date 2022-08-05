@@ -1,0 +1,210 @@
+20.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+20.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+21.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+21.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+21.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+21.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+21.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+21.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+22.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+22.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+22.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+22.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+22.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+22.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+22.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+25.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+25.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+25.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+25.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+25.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+26.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+26.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+26.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+26.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+26.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+26.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+27.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+27.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+27.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+27.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+27.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+27.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+28.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+28.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+28.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+28.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+28.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+28.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+29.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+29.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+29.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+29.07.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+29.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+29.07.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+01.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+01.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+01.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+01.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+02.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+02.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+02.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+02.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+02.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+03.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+03.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+03.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+03.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+03.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+03.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+03.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Forbidden: user is deactivated
+
+04.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+04.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+04.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+04.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+04.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+04.08.2022 18:00  checkup.send_notification_to_early_leaver:
+Chat_id is empty
+
+05.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: user is deactivated
+
+05.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+
+05.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Forbidden: bot was blocked by the user
+
+05.08.2022 09:10  checkup.check_users_in_logs_2-try(latecommer_users):
+Chat_id is empty
+

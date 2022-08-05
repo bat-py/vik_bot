@@ -196,11 +196,13 @@ async def check_last_2min_logs(dp: Dispatcher):
                 control = sql_handler.check_control(int(user[0]))
                 # Если опоздавший имеет статус Control, тогда админам отправим что он пришел только что пришел
                 if control:
+                    print('control working')
                     # Чтобы узнать первый раз ли он зашел получим количество логов рабочего за сегодня
                     all_logs_count = sql_handler.get_user_today_logs_count(user[0])
 
                     # Если это его первый раз за сегодня значит он только что пришел. Отправим админам что он пришел
                     if all_logs_count == 1:
+                        print('first_time working')
                         admins = sql_handler.get_admins_where_notification_on('latecomer_came_notification')
                         admins_chat_id_list = list(map(lambda i: i[0], admins))
 
@@ -235,6 +237,8 @@ async def check_last_2min_logs(dp: Dispatcher):
                         msg3 = f"{config['msg']['arrival_time']} {now_time.strftime('%H:%M')}"
                         msg4 = f"<b>{config['msg']['late_by']}</b> {late_time}"
                         msg = msg1 + msg2 + '\n\n' + msg3 + '\n\n' + msg4
+
+                        print(admins_chat_id_list)
 
                         for admin_id in admins_chat_id_list:
                             try:
